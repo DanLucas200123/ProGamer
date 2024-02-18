@@ -1,70 +1,66 @@
-#ifndef Gamer_h
-#define Gamer_h
+#pragma once
 
 #include "Arduino.h"
+#include <Gamer.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-class Gamer {
-public:
-	// Constructor
-	Gamer();
+class ProGamer : Gamer {
+private:
+	static const int REFRESH_TIME = 50;
+	static constexpr int REFRESH_RATE = 1000 / REFRESH_TIME;
 
-	// Keywords
-	#define UP 0
-	#define LEFT 1
-	#define RIGHT 2
-	#define DOWN 3
-	#define START 4
-	//Note: Gamer v1.9 is Capacitive touch instead of LDR.
-	#define LDR 5
+public:
+	#define CAPTOUCH 6
+
+	enum PixelColour {
+      ZERO,
+      QUARTER,
+      HALF,
+      ONE
+    };
+
+	// Constructor
+	using Gamer::Gamer;
 	
-	// Setup
-	void begin();
-	void update();
+	using Gamer::begin;
+	using Gamer::ldrValue;
+	using Gamer::setldrThreshold;
+	using Gamer::setRefreshRate;
+	using Gamer::setLED;
+	using Gamer::toggleLED;
+	using Gamer::irBegin;
+	using Gamer::irEnd;
+	
+	using Gamer::playTone;
+	using Gamer::stopTone;
 	
 	// Inputs
 	bool isPressed(uint8_t input);
 	bool isHeld(uint8_t input);
-	//Note: Gamers preceding v1.9
-	int ldrValue();
-	void setldrThreshold(uint16_t threshold);
-	//Note: Gamer v1.9
-	bool capTouch();
 
 	// Outputs
-	void setRefreshRate(uint16_t refreshRate);
-	void updateDisplay();
+	void setFramelength(int value);
+	void update();
 	void allOn();
 	void clear();
+	void setPixel(int x, int y, byte colour);
+	byte getPixel(int x, int y);
 	void printImage(byte* img);
 	void printImage(byte* img, int x, int y);
-	void setLED(bool value);
-	void toggleLED();
-	void playTone(int note);
-	void stopTone();
 	void printString(String string);
-	void appendColumn(byte* screen, byte col);
 	void showScore(int n);
-
-	// Infrared
-	void irBegin();
-	void irEnd();
-	
-	// Variables
-	byte display[8][8];
-	byte pulseCount;
-	byte buzzerCount;
-	byte nextRow;
-	byte currentRow;
-	byte counter;
-	byte image[8];
-	
-	// Routines attached to the timer's ISR
-	void isrRoutine();
 	
 private:
-	
+	byte image[16];
+	int frameLength = REFRESH_TIME;
+	long tick;
+	byte pressedInputs;
+	byte heldInputs;
+	byte colourToBinaryDigit(byte colour);
+	void updateInputs();
+	void updateDisplay();
+	/*
 	// Keywords
 	#define CLK1 6
 	#define DAT 8
@@ -99,7 +95,5 @@ private:
 	// Numbers and letters for printString
 	#define LETEND B10101010
 	const static uint8_t allLetters[85][9];
-	const static uint8_t allNumbers[10][8];
+	const static uint8_t allNumbers[10][8];*/
 };
-
-#endif
