@@ -2,8 +2,6 @@
 
 #define INPUT_MASK(_X_) (1 << (7 - _X_))
 
-#define TRACK_SIZE(_TRACK_) (sizeof(_TRACK_) / sizeof(_TRACK_[0]))
-
 bool ProGamer::isPressed(uint8_t input)
 {
   return pressedInputs & INPUT_MASK(input);
@@ -91,13 +89,28 @@ void ProGamer::showScore(int n)
   copyBaseDisplay();
 }
 
-void ProGamer::playTrack(Note track[], int beatLength, int pitchModifier)
+//void ProGamer::playTrack(Note track[], int beatLength) {playTrack(track, beatLength, 0);}
+
+void ProGamer::playTrack(int trackSize, Note track[], int beatLength, int pitchModifier)
 {
   currentTrack = track;
   this->beatLength = beatLength;
   this->pitchModifier = pitchModifier;
+  trackEndIdx = trackSize;
 
   trackIdx = -1;
+}
+
+void ProGamer::setSoundOn(bool value)
+{
+  soundOn = value;
+  if(!value)
+    Gamer::stopTone();
+}
+
+bool ProGamer::isSoundOn()
+{
+    return soundOn;
 }
 
 byte ProGamer::colourToBinaryDigit(byte colour)
@@ -159,24 +172,24 @@ void ProGamer::updateAudio()
   bool playNextTone = false;
   if(trackIdx < 0) {
     trackIdx = 0;
-    noteTime = currentTrack[0].duration;
+    noteTime = currentTrack[0].duration * beatLength;
     playNextTone = true;
   }
   else {
     noteTime -= REFRESH_TIME;
     while(noteTime < 0) {
       trackIdx++;
-      if(trackIdx == TRACK_SIZE(currentTrack)) {
+      if(trackIdx == trackEndIdx) {
         currentTrack = NULL;
         Gamer::stopTone();
         return;
       }
-      noteTime += currentTrack[trackIdx].duration;
+      noteTime += currentTrack[trackIdx].duration * beatLength;
       playNextTone = true;
     }
   }
 
-  if(playNextTone) {
+  if(playNextTone && isSoundOn()) {
     int pitch = currentTrack[trackIdx].value;
     if(pitch > 0)
       Gamer::playTone(pitch);

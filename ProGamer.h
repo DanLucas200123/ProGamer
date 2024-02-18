@@ -13,6 +13,8 @@ private:
 public:
 	#define CAPTOUCH 6
 
+	#define TRACK_SIZE(_TRACK_) (sizeof(_TRACK_) / sizeof(_TRACK_[0]))
+
 	enum PixelColour {
       ZERO,
       QUARTER,
@@ -59,7 +61,9 @@ public:
 	void printString(String string);
 	void showScore(int n);
 
-	void playTrack(Note track[], int beatLength, int pitchModifier = 0);
+	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
+	void setSoundOn(bool value);
+	bool isSoundOn();
 	
 private:
 	byte image[16];
@@ -70,9 +74,11 @@ private:
 
 	Note *currentTrack = nullptr;
 	int trackIdx;
+	int trackEndIdx;
 	int beatLength;
 	int pitchModifier;
 	int noteTime;
+	bool soundOn;
 
 	byte colourToBinaryDigit(byte colour);
 
