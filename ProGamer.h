@@ -20,6 +20,11 @@ public:
       ONE
     };
 
+	struct Note {
+		byte value;
+		byte duration;
+	};
+
 	// Constructor
 	using Gamer::Gamer;
 	
@@ -31,17 +36,20 @@ public:
 	using Gamer::toggleLED;
 	using Gamer::irBegin;
 	using Gamer::irEnd;
-	
+
 	using Gamer::playTone;
 	using Gamer::stopTone;
+
+	void update();
+
+	void setFramelength(int value);
+	int getFramelength();
 	
 	// Inputs
 	bool isPressed(uint8_t input);
 	bool isHeld(uint8_t input);
 
 	// Outputs
-	void setFramelength(int value);
-	void update();
 	void allOn();
 	void clear();
 	void setPixel(int x, int y, byte colour);
@@ -50,6 +58,8 @@ public:
 	void printImage(byte* img, int x, int y);
 	void printString(String string);
 	void showScore(int n);
+
+	void playTrack(Note track[], int beatLength, int pitchModifier = 0);
 	
 private:
 	byte image[16];
@@ -57,9 +67,20 @@ private:
 	long tick;
 	byte pressedInputs;
 	byte heldInputs;
+
+	Note *currentTrack = nullptr;
+	int trackIdx;
+	int beatLength;
+	int pitchModifier;
+	int noteTime;
+
 	byte colourToBinaryDigit(byte colour);
+
 	void updateInputs();
 	void updateDisplay();
+	void updateAudio();
+
+	void copyBaseDisplay();
 	/*
 	// Keywords
 	#define CLK1 6

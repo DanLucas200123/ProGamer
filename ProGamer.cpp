@@ -2,6 +2,8 @@
 
 #define INPUT_MASK(_X_) (1 << (7 - _X_))
 
+#define TRACK_SIZE(_TRACK_) (sizeof(_TRACK_) / sizeof(_TRACK_[0]))
+
 bool ProGamer::isPressed(uint8_t input)
 {
   return pressedInputs & INPUT_MASK(input);
@@ -17,15 +19,22 @@ void ProGamer::setFramelength(int value)
   frameLength = value;
 }
 
+int ProGamer::getFramelength()
+{
+  return frameLength;
+}
+
 void ProGamer::update()
 {
   int processTimer = 0;
   while(processTimer < frameLength) {
     updateDisplay();
+    updateAudio();
     tick++;
     processTimer += REFRESH_TIME;
     delay(REFRESH_TIME);
   }
+
   updateInputs();
 }
 
@@ -62,11 +71,13 @@ byte ProGamer::getPixel(int x, int y)
 void ProGamer::printImage(byte *img)
 {
   Gamer::printImage(img);
+  copyBaseDisplay();
 }
 
 void ProGamer::printImage(byte *img, int x, int y)
 {
   Gamer::printImage(img, x, y);
+  copyBaseDisplay();
 }
 
 void ProGamer::printString(String string)
@@ -77,6 +88,16 @@ void ProGamer::printString(String string)
 void ProGamer::showScore(int n)
 {
   Gamer::showScore(n);
+  copyBaseDisplay();
+}
+
+void ProGamer::playTrack(Note track[], int beatLength, int pitchModifier)
+{
+  currentTrack = track;
+  this->beatLength = beatLength;
+  this->pitchModifier = pitchModifier;
+
+  trackIdx = -1;
 }
 
 byte ProGamer::colourToBinaryDigit(byte colour)
@@ -95,7 +116,7 @@ void ProGamer::updateInputs()
   bool capHeldLastFrame = isHeld(CAPTOUCH);
 
   //Directions and Start
-  for(int i=Gamer::UP; i<Gamer::START+1; i++) {
+  for(int i=UP; i<START+1; i++) {
     pressedInputs <<= 1;
     heldInputs <<= 1;
     pressedInputs |= Gamer::isPressed(i);
@@ -126,6 +147,50 @@ void ProGamer::updateDisplay()
     for(int i=0; i<8; i++) {
       Gamer::image[j] <<= 1;
       Gamer::image[j] |= colourToBinaryDigit(getPixel(i, j));
+    }
+  }
+}
+
+void ProGamer::updateAudio()
+{
+  if(!currentTrack)
+    return;
+  
+  bool playNextTone = false;
+  if(trackIdx < 0) {
+    trackIdx = 0;
+    noteTime = currentTrack[0].duration;
+    playNextTone = true;
+  }
+  else {
+    noteTime -= REFRESH_TIME;
+    while(noteTime < 0) {
+      trackIdx++;
+      if(trackIdx == TRACK_SIZE(currentTrack)) {
+        currentTrack = NULL;
+        Gamer::stopTone();
+        return;
+      }
+      noteTime += currentTrack[trackIdx].duration;
+      playNextTone = true;
+    }
+  }
+
+  if(playNextTone) {
+    int pitch = currentTrack[trackIdx].value;
+    if(pitch > 0)
+      Gamer::playTone(pitch);
+    else
+      Gamer::stopTone();
+  }
+}
+
+void ProGamer::copyBaseDisplay()
+{
+  for(int j=0; j<8; j++) {
+    for(int i=0; i<8; i++) {
+      byte pixelValue = (Gamer::image[j] >> (7 - i)) & 0b1;
+      setPixel(i, j, pixelValue ? ONE : ZERO);
     }
   }
 }
