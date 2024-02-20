@@ -34,11 +34,11 @@ void ProGamer::update()
   }
 
   if(renderMode == RM_SCORE) {
-    appendColumn(Gamer::image, 0);
+    appendColumn(0);
     //Check if right half of screen is empty
     bool empty = true;
-    for(int j=8; j<16; j++) {
-      if(image[j]) {
+    for(int j=0; j<8; j++) {
+      if(image[j] | 0b11) {
         empty = false;
         break;
       }
@@ -55,15 +55,15 @@ void ProGamer::update()
 
 void ProGamer::allOn()
 {
-  for(int j=0; j<16; j++) {
-    image[j] = 1;
+  for(int j=0; j<8; j++) {
+    image[j] = 0xFFFF;
   }
   renderMode = RM_NONE;
 }
 
 void ProGamer::clear()
 {
-  for(int j=0; j<16; j++) {
+  for(int j=0; j<8; j++) {
     image[j] = 0;
   }
   renderMode = RM_NONE;
@@ -71,19 +71,18 @@ void ProGamer::clear()
 
 void ProGamer::setPixel(int x, int y, byte colour)
 {
-  int shift = 6 - 2 * (x % 4);
-  byte mask = 0xFF ^ (0b11 << shift);
-  int index = 2 * y + (int)(x / 4);
-  image[index] &= mask;
-  image[index] |= (colour << shift);
+  int shift = 14 - 2 * x;
+  uint16_t mask = 0xFFFF ^ (0b11 << shift);
+  image[y] &= mask;
+  image[y] |= (colour << shift);
+
   renderMode = RM_NONE;
 }
 
 byte ProGamer::getPixel(int x, int y)
 {
-  int shift = 6 - 2 * (x % 4);
-  int index = 2 * y + (int)(x / 4);
-  return (image[index] >> shift) & 0b11;
+  int shift = 14 - 2 * x;
+  return (image[y] >> shift) & 0b11;
 }
 
 void ProGamer::printImage(byte *img)
@@ -119,10 +118,14 @@ void ProGamer::showScore(int n)
   copyBaseDisplay();
 }
 
-void ProGamer::appendColumn(byte *screen, byte col)
+void ProGamer::appendColumn(uint16_t col)
 {
   //Gamer::appendColumn(screen, col); //DON'T USE THIS! IT INCURS A DELAY!
-  copyBaseDisplay();
+
+  for(int j=0; j<8; j++) {
+    image[j] <<= 2;
+    image[j] |= (col >> (14 - 2 * j)) | 0b11;
+  }
 }
 
 //void ProGamer::playTrack(Note track[], int beatLength) {playTrack(track, beatLength, 0);}

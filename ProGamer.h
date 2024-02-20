@@ -7,8 +7,8 @@
 
 class ProGamer : Gamer {
 private:
-	static const int REFRESH_TIME = 20;
-	static constexpr int REFRESH_RATE = 1000 / REFRESH_TIME;
+	#define REFRESH_TIME 20
+	#define REFRESH_RATE (1000 / REFRESH_TIME)
 
 	#define DARK_TICKS_ON 1
 	#define DARK_TICKS_OFF 3
@@ -92,14 +92,14 @@ public:
 	void printImage(byte* img, int x, int y);
 	void printString(String string);
 	void showScore(int n);
-	void appendColumn(byte *screen, byte col);
+	void appendColumn(uint16_t col);
 
 	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
 	void setSoundOn(bool value);
 	bool isSoundOn();
 	
 private:
-	byte image[16];
+	uint16_t image[8];
 	int frameLength = REFRESH_TIME;
 	long tick;
 	byte pressedInputs;
