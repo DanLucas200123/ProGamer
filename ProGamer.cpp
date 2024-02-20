@@ -33,6 +33,23 @@ void ProGamer::update()
     delay(REFRESH_TIME);
   }
 
+  if(renderMode == RM_SCORE) {
+    appendColumn(Gamer::image, 0);
+    //Check if right half of screen is empty
+    bool empty = true;
+    for(int j=8; j<16; j++) {
+      if(image[j]) {
+        empty = false;
+        break;
+      }
+    }
+
+    if(empty) {
+      renderVar /= 10;
+      showScore(renderVar);
+    }
+  }
+
   updateInputs();
 }
 
@@ -41,6 +58,7 @@ void ProGamer::allOn()
   for(int j=0; j<16; j++) {
     image[j] = 1;
   }
+  renderMode = RM_NONE;
 }
 
 void ProGamer::clear()
@@ -48,6 +66,7 @@ void ProGamer::clear()
   for(int j=0; j<16; j++) {
     image[j] = 0;
   }
+  renderMode = RM_NONE;
 }
 
 void ProGamer::setPixel(int x, int y, byte colour)
@@ -57,6 +76,7 @@ void ProGamer::setPixel(int x, int y, byte colour)
   int index = 2 * y + (int)(x / 4);
   image[index] &= mask;
   image[index] |= (colour << shift);
+  renderMode = RM_NONE;
 }
 
 byte ProGamer::getPixel(int x, int y)
@@ -70,22 +90,38 @@ void ProGamer::printImage(byte *img)
 {
   Gamer::printImage(img);
   copyBaseDisplay();
+  renderMode = RM_NONE;
 }
 
 void ProGamer::printImage(byte *img, int x, int y)
 {
   Gamer::printImage(img, x, y);
   copyBaseDisplay();
+  renderMode = RM_NONE;
 }
 
 void ProGamer::printString(String string)
 {
   Gamer::printString(string);
+  renderMode = RM_NONE;
 }
 
 void ProGamer::showScore(int n)
 {
-  Gamer::showScore(n);
+  if(n < 100) {
+    Gamer::showScore(n);
+    renderMode = RM_NONE;
+  }
+  else {
+    Gamer::showScore(n / (pow(10, floor(log(n / 10)))));
+    renderMode = RM_SCORE;
+  }
+  copyBaseDisplay();
+}
+
+void ProGamer::appendColumn(byte *screen, byte col)
+{
+  //Gamer::appendColumn(screen, col); //DON'T USE THIS! IT INCURS A DELAY!
   copyBaseDisplay();
 }
 
@@ -113,13 +149,14 @@ bool ProGamer::isSoundOn()
     return soundOn;
 }
 
-byte ProGamer::colourToBinaryDigit(byte colour)
+bool ProGamer::colourToBinaryDigit(byte colour)
 {
   switch(colour) {
     case ZERO: return 0;
-    case QUARTER:
-      return (tick / 2) % 2;
-    case HALF: return tick % 2;
+    case DARK:
+      return tick % (DARK_TICKS_OFF + DARK_TICKS_ON) < DARK_TICKS_ON;
+    case LIGHT:
+      return tick % (LIGHT_TICKS_OFF + LIGHT_TICKS_ON) < LIGHT_TICKS_ON;
     case ONE: return 1;
   }
 }
@@ -191,7 +228,7 @@ void ProGamer::updateAudio()
 
   if(playNextTone && isSoundOn()) {
     int pitch = currentTrack[trackIdx].value;
-    if(pitch > 0)
+    if(pitch >= 50)
       Gamer::playTone(pitch);
     else
       Gamer::stopTone();

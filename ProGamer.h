@@ -7,8 +7,18 @@
 
 class ProGamer : Gamer {
 private:
-	static const int REFRESH_TIME = 50;
+	static const int REFRESH_TIME = 20;
 	static constexpr int REFRESH_RATE = 1000 / REFRESH_TIME;
+
+	#define DARK_TICKS_ON 1
+	#define DARK_TICKS_OFF 3
+	#define LIGHT_TICKS_ON 3
+	#define LIGHT_TICKS_OFF 2
+
+	enum RenderMode {
+		RM_NONE,
+		RM_SCORE,
+	};
 
 public:
 	#define CAPTOUCH 6
@@ -17,12 +27,37 @@ public:
 
 	enum PixelColour {
       ZERO,
-      QUARTER,
-      HALF,
+      DARK,
+      LIGHT,
       ONE
     };
 
 	struct Note {
+		enum Pitch {
+			E3 = 50,
+			DSHARP3 = 57,
+			D3 = 64,
+			CSHARP3 = 68,
+			C3 = 73,
+			B3 = 77,
+			ASHARP3 = 88,
+			A3 = 94,
+			GSHARP2 = 99,
+			G2 = 105,
+			FSHARP2 = 122,
+			F2 = 129,
+			E2 = 137,
+			DSHARP2 = 145,
+			D2 = 153,
+			CSHARP2 = 179,
+			C2 = 190,
+			B2 = 201,
+			ASHARP2 = 213,
+			A2 = 226,
+			GSHARP1 = 240,
+			G1 = 254
+		};
+
 		byte value;
 		byte duration;
 	};
@@ -38,9 +73,6 @@ public:
 	using Gamer::toggleLED;
 	using Gamer::irBegin;
 	using Gamer::irEnd;
-
-	using Gamer::playTone;
-	using Gamer::stopTone;
 
 	void update();
 
@@ -60,6 +92,7 @@ public:
 	void printImage(byte* img, int x, int y);
 	void printString(String string);
 	void showScore(int n);
+	void appendColumn(byte *screen, byte col);
 
 	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
 	void setSoundOn(bool value);
@@ -72,6 +105,9 @@ private:
 	byte pressedInputs;
 	byte heldInputs;
 
+	byte renderMode = RM_NONE;
+	int renderVar;
+
 	Note *currentTrack = nullptr;
 	int trackIdx;
 	int trackEndIdx;
@@ -80,7 +116,7 @@ private:
 	int noteTime;
 	bool soundOn;
 
-	byte colourToBinaryDigit(byte colour);
+	bool colourToBinaryDigit(byte colour);
 
 	void updateInputs();
 	void updateDisplay();
