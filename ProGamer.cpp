@@ -25,9 +25,16 @@ int ProGamer::getFramelength()
 void ProGamer::update()
 {
   int processTimer = 0;
+  bool capTouchLast = isPressed(CAPTOUCH);
   while(processTimer < frameLength) {
     updateDisplay();
     updateAudio();
+
+    bool capTouchCurrent = Gamer::capTouch();
+    if(capTouchCurrent && !capTouchLast)
+      capTouchFlag = true;
+    capTouchLast = capTouchCurrent;
+
     tick++;
     processTimer += REFRESH_TIME;
     delay(REFRESH_TIME);
@@ -140,6 +147,15 @@ void ProGamer::playTrack(int trackSize, Note track[], int beatLength, int pitchM
   trackIdx = -1;
 }
 
+void ProGamer::playSFX(int trackSize, byte track[], int beatLength)
+{
+  currentSFX = track;
+  sfxBeatLength = beatLength;
+  sfxEndIdx = trackSize;
+
+  sfxTick = -1;
+}
+
 void ProGamer::setSoundOn(bool value)
 {
   soundOn = value;
@@ -166,8 +182,6 @@ bool ProGamer::colourToBinaryDigit(byte colour)
 
 void ProGamer::updateInputs()
 {
-  bool capHeldLastFrame = isHeld(CAPTOUCH);
-
   //Directions and Start
   for(int i=UP; i<START+1; i++) {
     pressedInputs <<= 1;
@@ -183,12 +197,9 @@ void ProGamer::updateInputs()
   //Capacitive touch
   pressedInputs <<= 1;
   heldInputs <<= 1;
-  if(Gamer::capTouch()) {
-    heldInputs |= 1;
-    if(!capHeldLastFrame) {
-      pressedInputs |= 1;
-    }
-  }
+  pressedInputs |= capTouchFlag;
+  heldInputs |= Gamer::capTouch();
+  capTouchFlag = false;
 
   pressedInputs <<= 1;
   heldInputs <<= 1;
@@ -206,33 +217,45 @@ void ProGamer::updateDisplay()
 
 void ProGamer::updateAudio()
 {
-  if(!currentTrack)
-    return;
-  
-  bool playNextTone = false;
-  if(trackIdx < 0) {
-    trackIdx = 0;
-    noteTime = currentTrack[0].duration * beatLength;
-    playNextTone = true;
-  }
-  else {
-    noteTime -= REFRESH_TIME;
-    while(noteTime < 0) {
-      trackIdx++;
-      if(trackIdx == trackEndIdx) {
-        currentTrack = NULL;
-        Gamer::stopTone();
-        return;
+  int playTone = -1;
+  if(currentTrack) {
+    if(trackIdx < 0) {
+      trackIdx = 0;
+      noteTime = currentTrack[0].duration * beatLength;
+      playTone = currentTrack[0].value;
+    }
+    else {
+      noteTime -= REFRESH_TIME;
+      while(noteTime < 0) {
+        trackIdx++;
+        if(trackIdx == trackEndIdx) {
+          currentTrack = NULL;
+          playTone = 0;
+          break;
+        }
+        noteTime += currentTrack[trackIdx].duration * beatLength;
       }
-      noteTime += currentTrack[trackIdx].duration * beatLength;
-      playNextTone = true;
+      if(currentTrack)
+        playTone = currentTrack[trackIdx].value;
     }
   }
 
-  if(playNextTone && isSoundOn()) {
-    int pitch = currentTrack[trackIdx].value;
-    if(pitch >= 50)
-      Gamer::playTone(pitch);
+  if(currentSFX) {
+    sfxTick += REFRESH_TIME;
+    int sfxIdx = sfxTick / sfxBeatLength;
+    if(sfxIdx >= sfxEndIdx) {
+      currentSFX = NULL;
+      if(playTone < 0)
+        playTone = 0;
+    }
+    else {
+      playTone = currentSFX[sfxIdx];
+    }
+  }
+  
+  if(playTone >= 0 && isSoundOn()) {
+    if(playTone >= 50)
+      Gamer::playTone(playTone);
     else
       Gamer::stopTone();
   }

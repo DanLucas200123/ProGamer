@@ -95,6 +95,7 @@ public:
 	void appendColumn(uint16_t col);
 
 	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
+	void playSFX(int trackSize, byte track[], int beatLength);
 	void setSoundOn(bool value);
 	bool isSoundOn();
 	
@@ -104,6 +105,7 @@ private:
 	long tick;
 	byte pressedInputs;
 	byte heldInputs;
+	bool capTouchFlag;
 
 	byte renderMode = RM_NONE;
 	int renderVar;
@@ -115,6 +117,10 @@ private:
 	int pitchModifier;
 	int noteTime;
 	bool soundOn;
+	byte *currentSFX = nullptr;
+	int sfxTick;
+	int sfxEndIdx;
+	int sfxBeatLength;
 
 	bool colourToBinaryDigit(byte colour);
 
