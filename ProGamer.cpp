@@ -1,6 +1,204 @@
 #include "ProGamer.h"
 
-#define INPUT_MASK(_X_) (1 << (7 - _X_))
+#define INPUT_MASK(_X_) (1 << (_X_))
+
+bool toggleVal = false;
+int split = 0;
+bool ir = false;
+bool irTog = false;
+bool toneIsPlaying = false;
+bool playTog = false;
+bool toneStopped = false;
+char prevChar;
+
+ProGamer *thisGamer = NULL;
+
+// Interrupt service routine.
+ISR(TIMER2_COMPB_vect)
+{
+  if(ir == 1) {
+    thisGamer->isrRoutine();
+  }
+
+}
+
+// Interrupt service routine for simultaneous IR & buzzer.
+ISR(TIMER2_COMPA_vect)
+{
+  if(ir == 0) {
+    if(toneIsPlaying) {
+      if (toggleVal) {
+        PORTD |= _BV(PORTD2);
+        toggleVal = 0;
+        if(split % 10 == 0 ){
+          thisGamer->isrRoutine();
+        }
+        split++;
+      }
+      else {
+        PORTD &= ~_BV(PORTD2);
+        toggleVal = 1;
+        if(split % 10== 0 ) {
+          thisGamer->isrRoutine();
+        }
+        split++;
+      }
+      split++;
+    }
+    else {
+      PORTD &= ~_BV(PORTD2);
+      if(split % 10 == 0 ) {
+        thisGamer->isrRoutine();
+      }
+    }
+    split++;
+  }
+}
+
+ProGamer::ProGamer() {}
+
+void ProGamer::playTone(int note)
+{
+  TIMSK2 &= (1<<OCIE2A);
+
+  if(playTog == false){
+    toneStopped = false;
+    irTog = true;
+    ir = 0;
+    noInterrupts();
+
+    TCCR2A = ~(_BV(COM2B1)) | ~(_BV(WGM21)) | ~(_BV(WGM20));
+    TCCR2B = ~(_BV(WGM22)) | ~(_BV(CS22));
+    TCCR2B = (TCCR2B & 0b0000000) | 0;
+    TIMSK2 = ~(_BV(OCIE2B));
+
+    OCR2A = 0;
+    TIMSK2 = 0;
+    OCR2B = 0;
+    TCCR2A = 0;
+    TCCR2B = 0;
+    TCNT2  = 0;
+    TCCR2A |= (1 << WGM21);
+    OCR2A = 180;
+    TCCR2B |= (1 << CS21);
+    TIMSK2 |= (1 << OCIE2A);
+    playTog = true;
+  }
+  toneIsPlaying = true;
+  OCR2A = note;
+  interrupts();
+}
+
+void ProGamer::stopTone()
+{
+  if(toneStopped == false){
+    TIMSK2 &= (1<<OCIE1A);
+    toneStopped = true;
+    toneIsPlaying = false;
+    playTog = false;
+    OCR2A = 180;
+    digitalWrite(2,LOW);
+    split = 0;
+    toggleVal = 0;
+    irTog = false;
+    irBegin();
+  }
+
+  OCR1A = 14;
+  toneIsPlaying = false;
+}
+
+/**
+  Stops the 38KHz wave for the IR transmitter.
+ */
+void ProGamer::irEnd()
+{
+  irTog = false;
+}
+
+/**
+  Creates a 38KHz wave for the IR transmitter.
+ */
+void ProGamer::irBegin()
+{
+  TIMSK2 &= ~(1<<OCIE2A);
+  TIMSK2 &= (1<<OCIE1B);
+
+  if(irTog == false) {
+
+    irTog = true;
+
+    noInterrupts();
+    TCCR2A |=  ~(_BV(WGM21));
+    TCCR2B |= ~(_BV(CS21));
+    TIMSK2 |=  ~(_BV(OCIE2A));
+    TCCR2A = 0;
+    TCCR2B = 0;
+    TCNT2  = 0;
+    TCCR2A = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+    TCCR2B = _BV(WGM22) | _BV(CS22);
+    OCR2A = 51;
+    OCR2B = 26;
+    TCCR2B = (TCCR2B & 0b00111000) | 0x2;
+    TIMSK2 = _BV(OCIE2B);
+    interrupts();
+
+    ir = 1;
+  }
+}
+
+void ProGamer::begin()
+{
+  ::thisGamer = this;
+	
+  _refreshRate = 50;
+  ldrThreshold = 300;
+
+  // Setup outputs
+  pinMode(3, OUTPUT);
+  for(int i=6; i<=10; i++) pinMode(i, OUTPUT);
+  pinMode(2, OUTPUT);
+  pinMode(13, OUTPUT);
+  pinMode(5,INPUT);
+
+  // Setup inputs
+  DDRC = B00000;
+  PORTC = B11111;
+
+  //Analog Read 16 divisor
+  ADCSRA &= ~(1 << ADPS2);
+
+  //irBegin();
+}
+
+void ProGamer::update()
+{
+  int processTimer = 0;
+  //bool capTouchLast = isPressed(CAPTOUCH);
+  pressedInputs = 0;
+  while(processTimer < frameLength) {
+    updateDisplay();
+    updateAudio();
+
+    // bool capTouchCurrent = capTouch();
+    // if(capTouchCurrent && !capTouchLast)
+    //   capTouchFlag = true;
+    // capTouchLast = capTouchCurrent;
+
+    tick++;
+    processTimer += REFRESH_TIME;
+    delay(REFRESH_TIME);
+  }
+
+  if(renderMode == RM_SCORE) {
+    renderScore();
+  }
+  else if(renderMode == RM_STRING) {
+    renderString();
+  }
+
+  //updateInputs();
+}
 
 bool ProGamer::isPressed(uint8_t input)
 {
@@ -9,7 +207,7 @@ bool ProGamer::isPressed(uint8_t input)
 
 bool ProGamer::isHeld(uint8_t input)
 {
-  return heldInputs & INPUT_MASK(input);
+  return currentInputState & INPUT_MASK(input);
 }
 
 void ProGamer::setFramelength(int value)
@@ -22,42 +220,19 @@ int ProGamer::getFramelength()
   return frameLength;
 }
 
-void ProGamer::update()
+int ProGamer::ldrValue()
 {
-  int processTimer = 0;
-  bool capTouchLast = isPressed(CAPTOUCH);
-  while(processTimer < frameLength) {
-    updateDisplay();
-    updateAudio();
+    return analogRead(LDR);
+}
 
-    bool capTouchCurrent = Gamer::capTouch();
-    if(capTouchCurrent && !capTouchLast)
-      capTouchFlag = true;
-    capTouchLast = capTouchCurrent;
+void ProGamer::setldrThreshold(uint16_t threshold)
+{
+  ldrThreshold = threshold;
+}
 
-    tick++;
-    processTimer += REFRESH_TIME;
-    delay(REFRESH_TIME);
-  }
-
-  if(renderMode == RM_SCORE) {
-    appendColumn(0);
-    //Check if right half of screen is empty
-    bool empty = true;
-    for(int j=0; j<8; j++) {
-      if(image[j] | 0b11) {
-        empty = false;
-        break;
-      }
-    }
-
-    if(empty) {
-      renderVar /= 10;
-      showScore(renderVar);
-    }
-  }
-
-  updateInputs();
+void ProGamer::setRefreshRate(uint16_t refreshRate)
+{
+  _refreshRate = refreshRate;
 }
 
 void ProGamer::allOn()
@@ -94,45 +269,73 @@ byte ProGamer::getPixel(int x, int y)
 
 void ProGamer::printImage(byte *img)
 {
-  Gamer::printImage(img);
-  copyBaseDisplay();
+  for(int j=0; j<8; j++) {
+    for(int i=0; i<8; i++) {
+      setPixel(i, j, img[j] & (1 << (7-i)) ? ONE : ZERO);
+    }
+  }
   renderMode = RM_NONE;
 }
 
 void ProGamer::printImage(byte *img, int x, int y)
 {
-  Gamer::printImage(img, x, y);
-  copyBaseDisplay();
+  for(int j=constrain(y,0,8); j<8 && j<y+8; j++) {
+    for(int i=constrain(x,0,8); i<8 && i<x+8; i++) {
+      setPixel(i, j, img[j-y] & (1 << (7-(i-x))) ? ONE : ZERO);
+    }
+  }
   renderMode = RM_NONE;
 }
 
 void ProGamer::printString(String string)
 {
-  Gamer::printString(string);
-  renderMode = RM_NONE;
+  //clear();
+  currentString = string;
+  renderVar = 0;
+  renderVar2 = 0;
+  renderMode = RM_STRING;
 }
 
 void ProGamer::showScore(int n)
 {
   if(n < 100) {
-    Gamer::showScore(n);
+    printDigit(n / 10, 0);
+    printDigit(n % 10, 4);
     renderMode = RM_NONE;
   }
   else {
-    Gamer::showScore(n / (pow(10, floor(log(n / 10)))));
+    int top = n / (pow(10, floor(log(n / 10))));
+    printDigit(top / 10, 0);
+    printDigit(top % 10, 4);
     renderMode = RM_SCORE;
+    renderVar = n;
   }
-  copyBaseDisplay();
 }
 
 void ProGamer::appendColumn(uint16_t col)
 {
-  //Gamer::appendColumn(screen, col); //DON'T USE THIS! IT INCURS A DELAY!
-
   for(int j=0; j<8; j++) {
     image[j] <<= 2;
     image[j] |= (col >> (14 - 2 * j)) | 0b11;
   }
+}
+
+void ProGamer::appendColumn(byte col)
+{
+  for(int j=0; j<8; j++) {
+    image[j] <<= 2;
+    image[j] |= (col >> (7 - j)) | 0b1 ? 0b11 : 0;
+  }
+}
+
+void ProGamer::setLED(bool value)
+{
+  digitalWrite(LED, value);
+}
+
+void ProGamer::toggleLED()
+{
+  digitalWrite(LED, !digitalRead(LED));
 }
 
 //void ProGamer::playTrack(Note track[], int beatLength) {playTrack(track, beatLength, 0);}
@@ -180,14 +383,111 @@ bool ProGamer::colourToBinaryDigit(byte colour)
   }
 }
 
+bool ProGamer::colourRowToByte(uint16_t row)
+{
+  byte output = 0;
+  for(int i=0; i<8; i++) {
+    output << 1;
+    output |= colourToBinaryDigit((row >> (16 - 2*i)) | 0b11);
+  }
+}
+
+bool ProGamer::capTouch()
+{
+	pinMode(19, OUTPUT);
+
+  digitalWrite(19, LOW);
+
+  delay(1);
+
+  // Prevent the timer IRQ from disturbing our measurement
+
+  noInterrupts();
+
+  // Make the pin an input with the internal pull-up on
+
+  pinMode(19, INPUT_PULLUP);
+
+
+
+  // Now see how long the pin to get pulled up. This manual unrolling of the loop
+
+  // decreases the number of hardware cycles between each read of the pin,
+
+  // thus increasing sensitivity.
+
+  uint8_t cycles = 17;
+
+        if (digitalRead(19)) { cycles =  0;}
+
+  else if (digitalRead(19)) { cycles =  1;}
+
+  else if (digitalRead(19)) { cycles =  2;}
+
+  else if (digitalRead(19)) { cycles =  3;}
+
+  else if (digitalRead(19)) { cycles =  4;}
+
+  else if (digitalRead(19)) { cycles =  5;}
+
+  else if (digitalRead(19)) { cycles =  6;}
+
+  else if (digitalRead(19)) { cycles =  7;}
+
+  else if (digitalRead(19)) { cycles =  8;}
+
+  else if (digitalRead(19)) { cycles =  9;}
+
+  else if (digitalRead(19)) { cycles = 10;}
+
+  else if (digitalRead(19)) { cycles = 11;}
+
+  else if (digitalRead(19)) { cycles = 12;}
+
+  else if (digitalRead(19)) { cycles = 13;}
+
+  else if (digitalRead(19)) { cycles = 14;}
+
+  else if (digitalRead(19)) { cycles = 15;}
+
+  else if (digitalRead(19)) { cycles = 16;}
+
+  // End of timing-critical section
+
+  interrupts();
+
+  // Discharge the pin again by setting it low and output
+
+  //  It's important to leave the pins low if you want to 
+
+  //  be able to touch more than 1 sensor at a time - if
+
+  //  the sensor is left pulled high, when you touch
+
+  //  two sensors, your body will transfer the charge between
+
+  //  sensors.
+
+  digitalWrite(19, LOW);
+
+  pinMode(19, OUTPUT);
+
+
+  if(cycles > 0){
+    return true;
+  } else {
+      return false;
+  }
+}
+
 void ProGamer::updateInputs()
 {
-  //Directions and Start
+  /*//Directions and Start
   for(int i=UP; i<START+1; i++) {
     pressedInputs <<= 1;
     heldInputs <<= 1;
     pressedInputs |= Gamer::isPressed(i);
-    heldInputs |= Gamer::isHeld(i);
+    heldInputs |= (~(PINC) & (1 << i));
   }
 
   //LDR (?)
@@ -198,11 +498,11 @@ void ProGamer::updateInputs()
   pressedInputs <<= 1;
   heldInputs <<= 1;
   pressedInputs |= capTouchFlag;
-  heldInputs |= Gamer::capTouch();
+  heldInputs |= capTouch();
   capTouchFlag = false;
 
   pressedInputs <<= 1;
-  heldInputs <<= 1;
+  heldInputs <<= 1;*/
 }
 
 void ProGamer::updateDisplay()
@@ -261,7 +561,64 @@ void ProGamer::updateAudio()
   }
 }
 
-void ProGamer::copyBaseDisplay()
+void ProGamer::printDigit(int digit, int x)
+{
+  digit %= 10;
+
+  byte result[8];
+  for(int p=0;p<8;p++) {
+    result[p]=allNumbers[digit][p];
+  }
+  printImage(result, x, 0);
+}
+
+void ProGamer::renderScore()
+{
+  appendColumn(0);
+  //Check if right half of screen is empty
+  bool empty = true;
+  for(int j=0; j<8; j++) {
+    if(image[j] & 0xFF) {
+      empty = false;
+      break;
+    }
+  }
+
+  if(empty) {
+    renderVar /= 10;
+    showScore(renderVar);
+  }
+}
+
+void ProGamer::renderString()
+{
+  if(renderVar < currentString.length()) {
+    char c = currentString[renderVar];
+    int letIx = 0;
+    if( c>='A' && c<='Z' ) letIx = c-'A'+1;
+    else if( c>='a' && c<='z' ) letIx = c-'a'+1+26;
+    else if( c>='!' && c<='/' ) letIx = c+20;
+    else if( c>=':' && c<='@' ) letIx = c+10;
+    else if( c>='0' && c<='9' ) letIx = c+27;
+    
+    appendColumn(allLetters[letIx][renderVar2]);
+
+    renderVar2++;
+    if(allLetters[letIx][renderVar2] == LETEND) {
+      renderVar2 = 0;
+      renderVar++;
+    }
+  }
+  else {
+    appendColumn((uint16_t)0);
+    renderVar2++;
+    if(renderVar2 > 7) {
+      renderMode = RM_NONE;
+    }
+  }
+}
+
+/*void ProGamer::copyBaseDisplay()
 {
   for(int j=0; j<8; j++) {
     for(int i=0; i<8; i++) {
@@ -269,12 +626,112 @@ void ProGamer::copyBaseDisplay()
       setPixel(i, j, pixelValue ? ONE : ZERO);
     }
   }
+}*/
+
+/**
+  Runs routines within the Interrupt Service Routine.
+  Display updating, button event tracking, LDR updating.
+ */
+void ProGamer::isrRoutine()
+{
+  if(ir == 1){
+    pulseCount++;
+    if(pulseCount >= _refreshRate) {
+      updateRow();
+      pulseCount = 0;
+    }
+    if(pulseCount == _refreshRate/2) {
+      checkInputs();
+    }
+  }
+
+  if (ir == 0){
+    updateRow();
+    checkInputs();
+  }
+}
+
+/**
+  Writes a byte to the TLC5916 LED driver (cathodes).
+  @param dataOut the byte to write to the driver
+ */
+void ProGamer::writeToDriver(byte dataOut)
+{
+  // Output enable HIGH
+  PORTB |= _BV(PORTB2);
+
+  // Send byte to driver
+  for(int x=0; x<8; x++) {
+    PORTD &= ~_BV(PORTD6);
+    if(((dataOut & (1<<x)) >> x)) PORTB |= _BV(PORTB0);
+    else PORTB &= ~_BV(PORTB0);
+    PORTD |= _BV(PORTD6);
+  }
+
+  PORTD &= ~_BV(PORTD6);
+  PORTB |= _BV(PORTB1);
+  PORTB &= ~_BV(PORTB1);
+  PORTB &= ~_BV(PORTB2);
+}
+
+/**
+  Writes a byte to the MIC5891 shift register (anodes).
+  @param dataOut the byte to write to the register
+ */
+void ProGamer::writeToRegister(byte dataOut)
+{
+  for(int y=0; y<8; y++) {
+    if((dataOut & (1<<y)) >> y) PORTB |= _BV(PORTB0);
+    else PORTB &= ~_BV(PORTB0);
+    PORTD |= _BV(PORTD7);
+    PORTD &= ~_BV(PORTD7);
+  }
+
+  PORTB |= _BV(PORTB1);
+  PORTB &= ~_BV(PORTB1);
+}
+
+void ProGamer::checkInputs()
+{
+  lastInputState = currentInputState;
+  currentInputState = 0;
+
+  for(int i=0; i<7; i++) {
+    if(i != LDR) {
+      byte inputBit = i == CAPTOUCH ? (capTouch() << i) : (PINC & (1<<i));
+      currentInputState |= inputBit;
+      if(!(inputBit ^ (lastInputState & INPUT_MASK(i)))) {
+        if(!inputBit) {
+          pressedInputs |= inputBit;
+        }
+      }
+    }
+    else {
+      int ldrValue = analogRead(LDR);
+      if(ldrValue - lastLDRValue >= ldrThreshold)
+        pressedInputs |= 1 << LDR;
+      lastLDRValue = ldrValue;
+    }
+  }
+}
+
+void ProGamer::updateRow()
+{
+  if(counter==8) {
+    counter = 0;
+    currentRow = 0x80;
+  }
+  writeToRegister(0);
+  writeToDriver(colourRowToByte(image[counter]));
+  writeToRegister(currentRow);
+  currentRow >>= 1;
+  counter++;
 }
 
 /**
   All the letters in the world.
  */
-/*
+
 const uint8_t ProGamer::allLetters[85][9] = {
   {B00000000,B00000000,B00000000,LETEND},   // space
   {B01111110,B10010000,B10010000,B10010000,B01111110,B00000000,LETEND}, // A
@@ -361,12 +818,12 @@ const uint8_t ProGamer::allLetters[85][9] = {
   {B10000000,B10001110,B10110000,B11000000,B00000000,LETEND}, // 7
   {B01101100,B10010010,B10010010,B01101100,B00000000,LETEND}, // 8
   {B01100000,B10010010,B10010010,B01111100,B00000000,LETEND}, // 9
-};*/
+};
 
 /**
   All the numbers in the world.
  */
-/*
+
 const uint8_t ProGamer::allNumbers[10][8] = {
   { B00000010,B00000101,B00000101,B00000101,B00000101,B00000101,B00000101,B00000010 },
   { B00000010,B00000110,B00000010,B00000010,B00000010,B00000010,B00000010,B00000111 },
@@ -378,4 +835,4 @@ const uint8_t ProGamer::allNumbers[10][8] = {
   { B00000111,B00000001,B00000001,B00000010,B00000010,B00000100,B00000100,B00000100 },
   { B00000010,B00000101,B00000101,B00000010,B00000101,B00000101,B00000101,B00000010 },
   { B00000010,B00000101,B00000101,B00000011,B00000001,B00000001,B00000001,B00000110 }
-};*/
+};

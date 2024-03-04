@@ -1,11 +1,10 @@
 #pragma once
 
 #include "Arduino.h"
-#include <Gamer.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-class ProGamer : Gamer {
+class ProGamer {
 private:
 	#define REFRESH_TIME 20
 	#define REFRESH_RATE (1000 / REFRESH_TIME)
@@ -18,9 +17,17 @@ private:
 	enum RenderMode {
 		RM_NONE,
 		RM_SCORE,
+		RM_STRING,
 	};
 
 public:
+	#define UP 0
+	#define LEFT 1
+	#define RIGHT 2
+	#define DOWN 3
+	#define START 4
+	//Note: Gamer v1.9 is Capacitive touch instead of LDR.
+	#define LDR 5
 	#define CAPTOUCH 6
 
 	#define TRACK_SIZE(_TRACK_) (sizeof(_TRACK_) / sizeof(_TRACK_[0]))
@@ -63,7 +70,7 @@ public:
 	};
 
 	// Constructor
-	using Gamer::Gamer;
+	/*using Gamer::Gamer;
 	
 	using Gamer::begin;
 	using Gamer::ldrValue;
@@ -72,12 +79,28 @@ public:
 	using Gamer::setLED;
 	using Gamer::toggleLED;
 	using Gamer::irBegin;
-	using Gamer::irEnd;
+	using Gamer::irEnd;*/
 
+	byte pulseCount;
+	byte buzzerCount;
+	byte nextRow;
+	byte currentRow;
+	byte counter;
+
+	ProGamer();
+
+	void irEnd();
+	void irBegin();
+
+	void begin();
 	void update();
 
 	void setFramelength(int value);
 	int getFramelength();
+
+	int ldrValue();
+	void setldrThreshold(uint16_t threshold);
+	void setRefreshRate(uint16_t refreshRate);
 	
 	// Inputs
 	bool isPressed(uint8_t input);
@@ -93,6 +116,9 @@ public:
 	void printString(String string);
 	void showScore(int n);
 	void appendColumn(uint16_t col);
+	void appendColumn(byte col);
+	void setLED(bool value);
+	void toggleLED();
 
 	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
 	void playSFX(int trackSize, byte track[], int beatLength);
@@ -100,15 +126,35 @@ public:
 	bool isSoundOn();
 	
 private:
+	// Keywords
+	#define CLK1 6
+	#define DAT 8
+	#define LAT 9
+	#define CLK2 7
+	#define DAT 8
+	#define LAT 9
+	#define OE 10
+	#define LED 13
+	#define BUZZER 2
+	#define RX 5
+	#define TX 4
+	#define DEBOUNCETIME 50
+
+	uint16_t _refreshRate;
+	uint16_t ldrThreshold;
+
 	uint16_t image[8];
 	int frameLength = REFRESH_TIME;
 	long tick;
 	byte pressedInputs;
-	byte heldInputs;
-	bool capTouchFlag;
+	byte currentInputState;
+	byte lastInputState;
+	int lastLDRValue;
 
 	byte renderMode = RM_NONE;
 	int renderVar;
+	int renderVar2;
+	String currentString;
 
 	Note *currentTrack = nullptr;
 	int trackIdx;
@@ -123,46 +169,28 @@ private:
 	int sfxBeatLength;
 
 	bool colourToBinaryDigit(byte colour);
+	bool colourRowToByte(uint16_t row);
 
+	void renderScore();
+	void renderString();
+	void printDigit(int digit, int x);
+
+	bool capTouch();
 	void updateInputs();
 	void updateDisplay();
 	void updateAudio();
 
-	void copyBaseDisplay();
-	/*
-	// Keywords
-	#define CLK1 6
-	#define DAT 8
-	#define LAT 9
-	#define CLK2 7
-	#define DAT 8
-	#define LAT 9
-	#define OE 10
-	#define LED 13
-	#define BUZZER 2
-	#define RX 5
-	#define TX 4
-	#define DEBOUNCETIME 50
-	
-	// Variables
-	uint16_t _refreshRate;
-	bool buttonFlags[6];
-	unsigned long buttonLastPressed[6];
-	int lastInputState[6];
-	uint16_t ldrThreshold;
-	
-	// Functions
-	void setupLetters();
+	void playTone(int note);
+	void stopTone();
+
+	void isrRoutine();
 	void writeToDriver(byte dataOut);
 	void writeToRegister(byte dataOut);
-	void checkSerial();
 	void checkInputs();
 	void updateRow();
-	int currentInputState[6];
-	boolean tog;
 
 	// Numbers and letters for printString
 	#define LETEND B10101010
 	const static uint8_t allLetters[85][9];
-	const static uint8_t allNumbers[10][8];*/
+	const static uint8_t allNumbers[10][8];
 };
