@@ -1,22 +1,15 @@
 /*
-This is a Flappy Bird game for the DIY Gamer Kit.
-We've made this game as an example. You can see how it works, 
-hack it, change it, and break it. We've commented the code to 
-help you understand what each function and variable does. 
-For example, try to change the wall thickness to make the 
-game more difficult. Or make it easier by changing the flyingSpeed
-of the bird!
+Flappy Bird example using the ProGamer library
 */
 
-// Include Gamer library.
-#include <Gamer.h>
+#include <ProGamer.h>
 
-// Create a copy of the Gamer library.
-Gamer gamer;
+ProGamer gamer;
 
 // General
 int score;
 boolean isPlaying;
+int gameOverTimer = -1;
 
 // Wall - related
 int wallThickness = 2;
@@ -32,10 +25,10 @@ int gravity = 1;
 
 // Sound - related
 int gameStartSongLength = 3;
-int gameStartNotes[] = {160, 140, 120};
+byte gameStartNotes[] = {160, 140, 120};
 int gameOverSongLength = 4;
-int gameOverNotes[] = {120, 140, 160, 190};
-int wallNote = 200;
+byte gameOverNotes[] = {120, 140, 160, 190};
+byte wallNote[] = {200};
 
 // Splash screen image
 byte splashScreen[8] = {B11101110,
@@ -51,10 +44,11 @@ byte splashScreen[8] = {B11101110,
 void setup() {
   gamer.begin();
   randomSeed(gamer.ldrValue());
+  gamer.setFramelength(flyingSpeed);
 }
 
 void loop() {
-  if(isPlaying) {
+  if(isPlaying && gameOverTimer < 0) {
     gamer.clear();
     moveWall();
     drawWall();
@@ -62,12 +56,15 @@ void loop() {
     detectCollision();
     recordScore();
     drawBird();
-    gamer.updateDisplay();
-    delay(flyingSpeed);
+  }
+  else if(gameOverTimer >= 0) {
+    updateGameOver();
   }
   else {
     showSplashScreen();
   }
+
+  gamer.update();
 }
 
 /* ---------------------------------------------------------------
@@ -100,7 +97,8 @@ void drawBird() {
   // Make sure the bird isn't off the screen.
   birdY = constrain(birdY, 0, 7);
   // Display the bird dot.
-  gamer.display[birdX][birdY] = 1;
+  if(gameOverTimer < 0)
+    gamer.setPixel(birdX, birdY, ProGamer::ONE);
 }
 
 /* ---------------------------------------------------------------
@@ -138,7 +136,7 @@ void drawWall() {
       for(int i=0; i<8; i++) {
         // Draw the wall, but miss out the gap. 
         if(i > gapPosition + gapSize - 1 || i < gapPosition) {
-          gamer.display[currentWallPosition+j][i] = 1;
+          gamer.setPixel(currentWallPosition+j, i, ProGamer::ONE);
         }
       }
     }
@@ -150,7 +148,7 @@ void drawWall() {
  same position as the bird, it's game over!
  */
 void detectCollision() {
-  if(gamer.display[birdX][birdY] == 1) {
+  if(gamer.getPixel(birdX, birdY)) {
     gameOver();
   }
 }
@@ -162,9 +160,8 @@ void detectCollision() {
 void recordScore() {
   if(birdX == currentWallPosition + wallThickness) {
     score++;
-    gamer.playTone(wallNote);
+    gamer.playSFX(1, wallNote, flyingSpeed);
   }
-  else gamer.stopTone();
 }
 
 /* ---------------------------------------------------------------
@@ -174,18 +171,14 @@ void showSplashScreen() {
   if(gamer.isPressed(START)) {
     
     // Play a tune before the game starts.
-    for(int i=0; i<gameStartSongLength; i++) {
-      gamer.playTone(gameStartNotes[i]);
-      delay(100);
-    }
-    
-    // Stop the sound!
-    gamer.stopTone();
+    gamer.playSFX(3, gameStartNotes, 100);
     
     isPlaying = true;
     generateWall();
     birdY = 2;
     score = 0;
+
+    gamer.setFramelength(flyingSpeed);
   }
   else {
     gamer.printImage(splashScreen);
@@ -198,22 +191,33 @@ void showSplashScreen() {
 void gameOver() {
   
   // Play the Game Over tune.
-  for(int i=0; i<gameOverSongLength; i++) {
-    gamer.playTone(gameOverNotes[i]);
-    delay(100);
-  }
-  
-  // Turn off sound.
-  gamer.stopTone();
+  gamer.playSFX(4, gameOverNotes, 100);
+  gameOverTimer = 0;
   
   // Display Game Over followed by the score.
   gamer.printString("Game over");
-  delay(100);
-  gamer.printString("Score");
-  delay(500);
-  gamer.showScore(score);
-  delay(500);
-  isPlaying = false;
+  gamer.setFramelength(50);
+}
+
+void updateGameOver() {
+  if(gamer.isRenderingSpecial())
+    return;
+  
+  if(gameOverTimer == 0) {
+    gamer.printString("Score");
+    gamer.setFramelength(50);
+  }
+  else if(gameOverTimer == 1) {
+    gamer.showScore(score);
+    gamer.setFramelength(100);
+  }
+  else if(gameOverTimer > 20) {
+    isPlaying = false;
+    gameOverTimer = -1;
+    return;
+  }
+
+  gameOverTimer++;
 }
 
 

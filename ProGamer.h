@@ -6,8 +6,8 @@
 
 class ProGamer {
 private:
-	#define REFRESH_TIME 20
-	#define REFRESH_RATE (1000 / REFRESH_TIME)
+	#define DEFAULT_REFRESH_RATE 50
+	#define FLASH_LOOP_TIME 20
 
 	#define DARK_TICKS_ON 1
 	#define DARK_TICKS_OFF 3
@@ -69,21 +69,7 @@ public:
 		byte duration;
 	};
 
-	// Constructor
-	/*using Gamer::Gamer;
-	
-	using Gamer::begin;
-	using Gamer::ldrValue;
-	using Gamer::setldrThreshold;
-	using Gamer::setRefreshRate;
-	using Gamer::setLED;
-	using Gamer::toggleLED;
-	using Gamer::irBegin;
-	using Gamer::irEnd;*/
-
 	byte pulseCount;
-	byte buzzerCount;
-	byte nextRow;
 	byte currentRow;
 	byte counter;
 
@@ -97,6 +83,8 @@ public:
 
 	void setFramelength(int value);
 	int getFramelength();
+
+	bool isRenderingSpecial();
 
 	int ldrValue();
 	void setldrThreshold(uint16_t threshold);
@@ -124,6 +112,8 @@ public:
 	void playSFX(int trackSize, byte track[], int beatLength);
 	void setSoundOn(bool value);
 	bool isSoundOn();
+
+	void isrRoutine();
 	
 private:
 	// Keywords
@@ -143,13 +133,15 @@ private:
 	uint16_t _refreshRate;
 	uint16_t ldrThreshold;
 
+	byte byteImage[8];
 	uint16_t image[8];
-	int frameLength = REFRESH_TIME;
+	int frameLength = FLASH_LOOP_TIME;
 	long tick;
 	byte pressedInputs;
 	byte currentInputState;
 	byte lastInputState;
 	int lastLDRValue;
+	bool capTouchFlag;
 
 	byte renderMode = RM_NONE;
 	int renderVar;
@@ -162,14 +154,14 @@ private:
 	int beatLength;
 	int pitchModifier;
 	int noteTime;
-	bool soundOn;
+	bool soundOn = true;
 	byte *currentSFX = nullptr;
 	int sfxTick;
 	int sfxEndIdx;
 	int sfxBeatLength;
 
 	bool colourToBinaryDigit(byte colour);
-	bool colourRowToByte(uint16_t row);
+	byte colourRowToByte(uint16_t row);
 
 	void renderScore();
 	void renderString();
@@ -183,7 +175,6 @@ private:
 	void playTone(int note);
 	void stopTone();
 
-	void isrRoutine();
 	void writeToDriver(byte dataOut);
 	void writeToRegister(byte dataOut);
 	void checkInputs();

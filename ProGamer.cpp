@@ -2,6 +2,10 @@
 
 #define INPUT_MASK(_X_) (1 << (_X_))
 
+#define TOP_DIGIT(_X_) (_X_ / (pow(10, floor(log10(_X_)))))
+#define TOP_2_DIGITS(_X_) (_X_ / (pow(10, floor(log10(_X_ / 10)))))
+#define REMOVE_FIRST_DIGIT(_X_) (_X_ % (int)(pow(10, floor(log10(_X_))) + 0.1))
+
 bool toggleVal = false;
 int split = 0;
 bool ir = false;
@@ -151,7 +155,7 @@ void ProGamer::begin()
 {
   ::thisGamer = this;
 	
-  _refreshRate = 50;
+  _refreshRate = DEFAULT_REFRESH_RATE;
   ldrThreshold = 300;
 
   // Setup outputs
@@ -168,7 +172,9 @@ void ProGamer::begin()
   //Analog Read 16 divisor
   ADCSRA &= ~(1 << ADPS2);
 
-  //irBegin();
+  irBegin();
+
+  clear();
 }
 
 void ProGamer::update()
@@ -177,17 +183,15 @@ void ProGamer::update()
   //bool capTouchLast = isPressed(CAPTOUCH);
   pressedInputs = 0;
   while(processTimer < frameLength) {
-    updateDisplay();
+    for(int j=0; j<8; j++)
+      byteImage[j] = colourRowToByte(image[j]);
     updateAudio();
 
-    // bool capTouchCurrent = capTouch();
-    // if(capTouchCurrent && !capTouchLast)
-    //   capTouchFlag = true;
-    // capTouchLast = capTouchCurrent;
+    capTouchFlag = capTouch();
 
     tick++;
-    processTimer += REFRESH_TIME;
-    delay(REFRESH_TIME);
+    processTimer += FLASH_LOOP_TIME;
+    delay(FLASH_LOOP_TIME);
   }
 
   if(renderMode == RM_SCORE) {
@@ -207,7 +211,7 @@ bool ProGamer::isPressed(uint8_t input)
 
 bool ProGamer::isHeld(uint8_t input)
 {
-  return currentInputState & INPUT_MASK(input);
+  return !(currentInputState & INPUT_MASK(input));
 }
 
 void ProGamer::setFramelength(int value)
@@ -218,6 +222,11 @@ void ProGamer::setFramelength(int value)
 int ProGamer::getFramelength()
 {
   return frameLength;
+}
+
+bool ProGamer::isRenderingSpecial()
+{
+    return renderMode != RM_NONE;
 }
 
 int ProGamer::ldrValue()
@@ -299,16 +308,17 @@ void ProGamer::printString(String string)
 void ProGamer::showScore(int n)
 {
   if(n < 100) {
-    printDigit(n / 10, 0);
+    if(n > 9)
+      printDigit(n / 10, 0);
     printDigit(n % 10, 4);
     renderMode = RM_NONE;
   }
   else {
-    int top = n / (pow(10, floor(log(n / 10))));
-    printDigit(top / 10, 0);
-    printDigit(top % 10, 4);
+    int top = TOP_DIGIT(n);
+    printDigit(top, 4);
     renderMode = RM_SCORE;
     renderVar = n;
+    renderVar2 = -1;
   }
 }
 
@@ -316,7 +326,7 @@ void ProGamer::appendColumn(uint16_t col)
 {
   for(int j=0; j<8; j++) {
     image[j] <<= 2;
-    image[j] |= (col >> (14 - 2 * j)) | 0b11;
+    image[j] |= (col >> (14 - 2 * j)) & 0b11;
   }
 }
 
@@ -324,7 +334,7 @@ void ProGamer::appendColumn(byte col)
 {
   for(int j=0; j<8; j++) {
     image[j] <<= 2;
-    image[j] |= (col >> (7 - j)) | 0b1 ? 0b11 : 0;
+    image[j] |= (col >> (7 - j)) & 0b1 ? ONE : ZERO;
   }
 }
 
@@ -363,7 +373,7 @@ void ProGamer::setSoundOn(bool value)
 {
   soundOn = value;
   if(!value)
-    Gamer::stopTone();
+    stopTone();
 }
 
 bool ProGamer::isSoundOn()
@@ -383,13 +393,14 @@ bool ProGamer::colourToBinaryDigit(byte colour)
   }
 }
 
-bool ProGamer::colourRowToByte(uint16_t row)
+byte ProGamer::colourRowToByte(uint16_t row)
 {
   byte output = 0;
   for(int i=0; i<8; i++) {
-    output << 1;
-    output |= colourToBinaryDigit((row >> (16 - 2*i)) | 0b11);
+    output <<= 1;
+    output |= colourToBinaryDigit((row >> (14 - 2*i)) & 0b11);
   }
+  return output;
 }
 
 bool ProGamer::capTouch()
@@ -505,66 +516,54 @@ void ProGamer::updateInputs()
   heldInputs <<= 1;*/
 }
 
-void ProGamer::updateDisplay()
-{
-  for(int j=0; j<8; j++) {
-    for(int i=0; i<8; i++) {
-      Gamer::image[j] <<= 1;
-      Gamer::image[j] |= colourToBinaryDigit(getPixel(i, j));
-    }
-  }
-}
-
 void ProGamer::updateAudio()
 {
-  int playTone = -1;
+  int toneToPlay = -1;
   if(currentTrack) {
     if(trackIdx < 0) {
       trackIdx = 0;
       noteTime = currentTrack[0].duration * beatLength;
-      playTone = currentTrack[0].value;
+      toneToPlay = currentTrack[0].value;
     }
     else {
-      noteTime -= REFRESH_TIME;
+      noteTime -= FLASH_LOOP_TIME;
       while(noteTime < 0) {
         trackIdx++;
         if(trackIdx == trackEndIdx) {
           currentTrack = NULL;
-          playTone = 0;
+          toneToPlay = 0;
           break;
         }
         noteTime += currentTrack[trackIdx].duration * beatLength;
       }
       if(currentTrack)
-        playTone = currentTrack[trackIdx].value;
+        toneToPlay = currentTrack[trackIdx].value;
     }
   }
 
   if(currentSFX) {
-    sfxTick += REFRESH_TIME;
+    sfxTick += FLASH_LOOP_TIME;
     int sfxIdx = sfxTick / sfxBeatLength;
     if(sfxIdx >= sfxEndIdx) {
       currentSFX = NULL;
-      if(playTone < 0)
-        playTone = 0;
+      if(toneToPlay < 0)
+        toneToPlay = 0;
     }
     else {
-      playTone = currentSFX[sfxIdx];
+      toneToPlay = currentSFX[sfxIdx];
     }
   }
   
-  if(playTone >= 0 && isSoundOn()) {
-    if(playTone >= 50)
-      Gamer::playTone(playTone);
+  if(toneToPlay >= 0 && isSoundOn()) {
+    if(toneToPlay >= 50)
+      playTone(toneToPlay);
     else
-      Gamer::stopTone();
+      stopTone();
   }
 }
 
 void ProGamer::printDigit(int digit, int x)
 {
-  digit %= 10;
-
   byte result[8];
   for(int p=0;p<8;p++) {
     result[p]=allNumbers[digit][p];
@@ -574,20 +573,22 @@ void ProGamer::printDigit(int digit, int x)
 
 void ProGamer::renderScore()
 {
-  appendColumn(0);
-  //Check if right half of screen is empty
-  bool empty = true;
-  for(int j=0; j<8; j++) {
-    if(image[j] & 0xFF) {
-      empty = false;
-      break;
+  renderVar2++;
+  appendColumn((uint16_t)0);
+
+  int top2Digits = TOP_2_DIGITS(renderVar);
+  printDigit(top2Digits % 10, 7 - renderVar2);
+
+  if(renderVar2 == 3) {
+    renderVar2 = -1;
+    renderVar = REMOVE_FIRST_DIGIT(renderVar);
+    if(renderVar < 10) {
+      renderMode = RM_NONE;
+      return;
     }
   }
 
-  if(empty) {
-    renderVar /= 10;
-    showScore(renderVar);
-  }
+  renderMode = RM_SCORE;
 }
 
 void ProGamer::renderString()
@@ -698,11 +699,11 @@ void ProGamer::checkInputs()
 
   for(int i=0; i<7; i++) {
     if(i != LDR) {
-      byte inputBit = i == CAPTOUCH ? (capTouch() << i) : (PINC & (1<<i));
+      byte inputBit = i == CAPTOUCH ? (!capTouchFlag << i) : (PINC & (1<<i));
       currentInputState |= inputBit;
-      if(!(inputBit ^ (lastInputState & INPUT_MASK(i)))) {
+      if(inputBit != (lastInputState & INPUT_MASK(i))) {
         if(!inputBit) {
-          pressedInputs |= inputBit;
+          pressedInputs |= 1 << i;
         }
       }
     }
@@ -711,6 +712,8 @@ void ProGamer::checkInputs()
       if(ldrValue - lastLDRValue >= ldrThreshold)
         pressedInputs |= 1 << LDR;
       lastLDRValue = ldrValue;
+      if(ldrValue > ldrThreshold)
+        currentInputState |= 1 << LDR;
     }
   }
 }
@@ -722,7 +725,7 @@ void ProGamer::updateRow()
     currentRow = 0x80;
   }
   writeToRegister(0);
-  writeToDriver(colourRowToByte(image[counter]));
+  writeToDriver(byteImage[counter]);
   writeToRegister(currentRow);
   currentRow >>= 1;
   counter++;
@@ -822,17 +825,18 @@ const uint8_t ProGamer::allLetters[85][9] = {
 
 /**
   All the numbers in the world.
+  (Change from original: all bytes have been left-shifted by 4)
  */
 
 const uint8_t ProGamer::allNumbers[10][8] = {
-  { B00000010,B00000101,B00000101,B00000101,B00000101,B00000101,B00000101,B00000010 },
-  { B00000010,B00000110,B00000010,B00000010,B00000010,B00000010,B00000010,B00000111 },
-  { B00000010,B00000101,B00000001,B00000010,B00000010,B00000100,B00000100,B00000111 },
-  { B00000111,B00000001,B00000001,B00000110,B00000001,B00000001,B00000101,B00000010 },
-  { B00000100,B00000101,B00000101,B00000111,B00000001,B00000001,B00000001,B00000001 },
-  { B00000111,B00000100,B00000100,B00000110,B00000001,B00000001,B00000101,B00000010 },
-  { B00000011,B00000100,B00000100,B00000110,B00000101,B00000101,B00000101,B00000010 },
-  { B00000111,B00000001,B00000001,B00000010,B00000010,B00000100,B00000100,B00000100 },
-  { B00000010,B00000101,B00000101,B00000010,B00000101,B00000101,B00000101,B00000010 },
-  { B00000010,B00000101,B00000101,B00000011,B00000001,B00000001,B00000001,B00000110 }
+  { B00100000,B01010000,B01010000,B01010000,B01010000,B01010000,B01010000,B00100000 },
+  { B00100000,B01100000,B00100000,B00100000,B00100000,B00100000,B00100000,B01110000 },
+  { B00100000,B01010000,B00010000,B00100000,B00100000,B01000000,B01000000,B01110000 },
+  { B01110000,B00010000,B00010000,B01100000,B00010000,B00010000,B01010000,B00100000 },
+  { B01000000,B01010000,B01010000,B01110000,B00010000,B00010000,B00010000,B00010000 },
+  { B01110000,B01000000,B01000000,B01100000,B00010000,B00010000,B01010000,B00100000 },
+  { B00110000,B01000000,B01000000,B01100000,B01010000,B01010000,B01010000,B00100000 },
+  { B01110000,B00010000,B00010000,B00100000,B00100000,B01000000,B01000000,B01000000 },
+  { B00100000,B01010000,B01010000,B00100000,B01010000,B01010000,B01010000,B00100000 },
+  { B00100000,B01010000,B01010000,B00110000,B00010000,B00010000,B00010000,B01100000 }
 };
