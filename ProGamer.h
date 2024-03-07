@@ -101,7 +101,7 @@ public:
 	byte getPixel(int x, int y);
 	void printImage(byte* img);
 	void printImage(byte* img, int x, int y);
-	void printString(String string);
+	void printString(char *string);
 	void showScore(int n);
 	void appendColumn(uint16_t col);
 	void appendColumn(byte col);
@@ -143,10 +143,11 @@ private:
 	int lastLDRValue;
 	bool capTouchFlag;
 
-	byte renderMode = RM_NONE;
+	//byte renderMode = RM_NONE;
+	void (ProGamer::*renderFunction)() = nullptr;
 	int renderVar;
 	int renderVar2;
-	String currentString;
+	char *currentString;
 
 	Note *currentTrack = nullptr;
 	int trackIdx;
@@ -168,8 +169,6 @@ private:
 	void printDigit(int digit, int x);
 
 	bool capTouch();
-	void updateInputs();
-	void updateDisplay();
 	void updateAudio();
 
 	void playTone(int note);

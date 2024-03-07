@@ -173,14 +173,11 @@ void ProGamer::begin()
   ADCSRA &= ~(1 << ADPS2);
 
   irBegin();
-
-  clear();
 }
 
 void ProGamer::update()
 {
   int processTimer = 0;
-  //bool capTouchLast = isPressed(CAPTOUCH);
   pressedInputs = 0;
   while(processTimer < frameLength) {
     for(int j=0; j<8; j++)
@@ -194,14 +191,15 @@ void ProGamer::update()
     delay(FLASH_LOOP_TIME);
   }
 
-  if(renderMode == RM_SCORE) {
-    renderScore();
-  }
-  else if(renderMode == RM_STRING) {
-    renderString();
-  }
+  if(renderFunction)
+    (this->*renderFunction)();
 
-  //updateInputs();
+  // if(renderMode == RM_SCORE) {
+  //   renderScore();
+  // }
+  // else if(renderMode == RM_STRING) {
+  //   renderString();
+  // }
 }
 
 bool ProGamer::isPressed(uint8_t input)
@@ -226,7 +224,8 @@ int ProGamer::getFramelength()
 
 bool ProGamer::isRenderingSpecial()
 {
-    return renderMode != RM_NONE;
+  //return renderMode != RM_NONE;
+  return renderFunction; // != nullptr;
 }
 
 int ProGamer::ldrValue()
@@ -249,7 +248,8 @@ void ProGamer::allOn()
   for(int j=0; j<8; j++) {
     image[j] = 0xFFFF;
   }
-  renderMode = RM_NONE;
+  //renderMode = RM_NONE;
+  renderFunction = nullptr;
 }
 
 void ProGamer::clear()
@@ -257,7 +257,8 @@ void ProGamer::clear()
   for(int j=0; j<8; j++) {
     image[j] = 0;
   }
-  renderMode = RM_NONE;
+  //renderMode = RM_NONE;
+  renderFunction = nullptr;
 }
 
 void ProGamer::setPixel(int x, int y, byte colour)
@@ -267,7 +268,8 @@ void ProGamer::setPixel(int x, int y, byte colour)
   image[y] &= mask;
   image[y] |= (colour << shift);
 
-  renderMode = RM_NONE;
+  //renderMode = RM_NONE;
+  renderFunction = nullptr;
 }
 
 byte ProGamer::getPixel(int x, int y)
@@ -278,31 +280,28 @@ byte ProGamer::getPixel(int x, int y)
 
 void ProGamer::printImage(byte *img)
 {
-  for(int j=0; j<8; j++) {
-    for(int i=0; i<8; i++) {
-      setPixel(i, j, img[j] & (1 << (7-i)) ? ONE : ZERO);
-    }
-  }
-  renderMode = RM_NONE;
+  printImage(img, 0, 0);
 }
 
 void ProGamer::printImage(byte *img, int x, int y)
 {
-  for(int j=constrain(y,0,8); j<8 && j<y+8; j++) {
-    for(int i=constrain(x,0,8); i<8 && i<x+8; i++) {
+  for(int j=max(y,0); j<min(y+8,8); j++) {
+    for(int i=max(x,0); i<min(x+8,8); i++) {
       setPixel(i, j, img[j-y] & (1 << (7-(i-x))) ? ONE : ZERO);
     }
   }
-  renderMode = RM_NONE;
+  //renderMode = RM_NONE;
+  renderFunction = nullptr;
 }
 
-void ProGamer::printString(String string)
+void ProGamer::printString(char *string)
 {
   //clear();
   currentString = string;
   renderVar = 0;
   renderVar2 = 0;
-  renderMode = RM_STRING;
+  //renderMode = RM_STRING;
+  renderFunction = &ProGamer::renderString;
 }
 
 void ProGamer::showScore(int n)
@@ -311,12 +310,14 @@ void ProGamer::showScore(int n)
     if(n > 9)
       printDigit(n / 10, 0);
     printDigit(n % 10, 4);
-    renderMode = RM_NONE;
+    //renderMode = RM_NONE;
+    renderFunction = nullptr;
   }
   else {
     int top = TOP_DIGIT(n);
     printDigit(top, 4);
-    renderMode = RM_SCORE;
+    //renderMode = RM_SCORE;
+    renderFunction = &ProGamer::renderScore;
     renderVar = n;
     renderVar2 = -1;
   }
@@ -334,7 +335,9 @@ void ProGamer::appendColumn(byte col)
 {
   for(int j=0; j<8; j++) {
     image[j] <<= 2;
-    image[j] |= (col >> (7 - j)) & 0b1 ? ONE : ZERO;
+    //image[j] |= (col >> (7 - j)) & 0b1 ? ONE : ZERO;
+    if((col >> (7 - j)) & 0b1)
+      image[j] += ONE;
   }
 }
 
@@ -491,31 +494,6 @@ bool ProGamer::capTouch()
   }
 }
 
-void ProGamer::updateInputs()
-{
-  /*//Directions and Start
-  for(int i=UP; i<START+1; i++) {
-    pressedInputs <<= 1;
-    heldInputs <<= 1;
-    pressedInputs |= Gamer::isPressed(i);
-    heldInputs |= (~(PINC) & (1 << i));
-  }
-
-  //LDR (?)
-  pressedInputs <<= 1;
-  heldInputs <<= 1;
-
-  //Capacitive touch
-  pressedInputs <<= 1;
-  heldInputs <<= 1;
-  pressedInputs |= capTouchFlag;
-  heldInputs |= capTouch();
-  capTouchFlag = false;
-
-  pressedInputs <<= 1;
-  heldInputs <<= 1;*/
-}
-
 void ProGamer::updateAudio()
 {
   int toneToPlay = -1;
@@ -532,15 +510,15 @@ void ProGamer::updateAudio()
         if(trackIdx == trackEndIdx) {
           currentTrack = NULL;
           toneToPlay = 0;
-          break;
+          goto updateAudioSFX;
         }
         noteTime += currentTrack[trackIdx].duration * beatLength;
       }
-      if(currentTrack)
-        toneToPlay = currentTrack[trackIdx].value;
+      toneToPlay = currentTrack[trackIdx].value;
     }
   }
-
+  
+updateAudioSFX:
   if(currentSFX) {
     sfxTick += FLASH_LOOP_TIME;
     int sfxIdx = sfxTick / sfxBeatLength;
@@ -566,7 +544,7 @@ void ProGamer::printDigit(int digit, int x)
 {
   byte result[8];
   for(int p=0;p<8;p++) {
-    result[p]=allNumbers[digit][p];
+    result[p] = pgm_read_byte(&allNumbers[digit][p]);
   }
   printImage(result, x, 0);
 }
@@ -578,23 +556,23 @@ void ProGamer::renderScore()
 
   int top2Digits = TOP_2_DIGITS(renderVar);
   printDigit(top2Digits % 10, 7 - renderVar2);
+  //renderMode = RM_SCORE;
+  renderFunction = &ProGamer::renderScore;
 
   if(renderVar2 == 3) {
     renderVar2 = -1;
     renderVar = REMOVE_FIRST_DIGIT(renderVar);
     if(renderVar < 10) {
-      renderMode = RM_NONE;
-      return;
+      renderFunction = nullptr;
     }
   }
-
-  renderMode = RM_SCORE;
 }
 
 void ProGamer::renderString()
 {
-  if(renderVar < currentString.length()) {
-    char c = currentString[renderVar];
+  byte col = 0;
+  char c = currentString[renderVar];
+  if(c != '\0') {
     int letIx = 0;
     if( c>='A' && c<='Z' ) letIx = c-'A'+1;
     else if( c>='a' && c<='z' ) letIx = c-'a'+1+26;
@@ -602,32 +580,24 @@ void ProGamer::renderString()
     else if( c>=':' && c<='@' ) letIx = c+10;
     else if( c>='0' && c<='9' ) letIx = c+27;
     
-    appendColumn(allLetters[letIx][renderVar2]);
+    col = pgm_read_byte(&allLetters[letIx][renderVar2]);
 
     renderVar2++;
-    if(allLetters[letIx][renderVar2] == LETEND) {
+    if(pgm_read_byte(&allLetters[letIx][renderVar2]) == LETEND) {
       renderVar2 = 0;
       renderVar++;
     }
   }
   else {
-    appendColumn((uint16_t)0);
     renderVar2++;
     if(renderVar2 > 7) {
-      renderMode = RM_NONE;
+      //renderMode = RM_NONE;
+      renderFunction = nullptr;
     }
   }
-}
 
-/*void ProGamer::copyBaseDisplay()
-{
-  for(int j=0; j<8; j++) {
-    for(int i=0; i<8; i++) {
-      byte pixelValue = (Gamer::image[j] >> (7 - i)) & 0b1;
-      setPixel(i, j, pixelValue ? ONE : ZERO);
-    }
-  }
-}*/
+  appendColumn(col);
+}
 
 /**
   Runs routines within the Interrupt Service Routine.
@@ -701,10 +671,8 @@ void ProGamer::checkInputs()
     if(i != LDR) {
       byte inputBit = i == CAPTOUCH ? (!capTouchFlag << i) : (PINC & (1<<i));
       currentInputState |= inputBit;
-      if(inputBit != (lastInputState & INPUT_MASK(i))) {
-        if(!inputBit) {
-          pressedInputs |= 1 << i;
-        }
+      if(!inputBit && (lastInputState & INPUT_MASK(i))) {
+        pressedInputs |= 1 << i;
       }
     }
     else {
@@ -735,7 +703,7 @@ void ProGamer::updateRow()
   All the letters in the world.
  */
 
-const uint8_t ProGamer::allLetters[85][9] = {
+const PROGMEM uint8_t ProGamer::allLetters[85][9] = {
   {B00000000,B00000000,B00000000,LETEND},   // space
   {B01111110,B10010000,B10010000,B10010000,B01111110,B00000000,LETEND}, // A
   {B11111110,B10010010,B10010010,B10010010,B01101100,B00000000,LETEND}, // B
@@ -828,7 +796,7 @@ const uint8_t ProGamer::allLetters[85][9] = {
   (Change from original: all bytes have been left-shifted by 4)
  */
 
-const uint8_t ProGamer::allNumbers[10][8] = {
+const PROGMEM uint8_t ProGamer::allNumbers[10][8] = {
   { B00100000,B01010000,B01010000,B01010000,B01010000,B01010000,B01010000,B00100000 },
   { B00100000,B01100000,B00100000,B00100000,B00100000,B00100000,B00100000,B01110000 },
   { B00100000,B01010000,B00010000,B00100000,B00100000,B01000000,B01000000,B01110000 },
