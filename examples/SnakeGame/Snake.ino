@@ -92,6 +92,6 @@ void detectCollision() {
  */
 void drawSnake() {
   for(int i=0; i<snakeLength; i++) {
-    gamer.display[snakeX[i]][snakeY[i]] = 1;
+    gamer.setPixel(snakeX[i], snakeY[i], i % 2 ? snakeColourB : snakeColourA);
   }
 }

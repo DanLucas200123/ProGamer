@@ -23,6 +23,7 @@ setPixel KEYWORD2
 getPixel KEYWORD2
 printImage	KEYWORD2
 printString	KEYWORD2
+printChar	KEYWORD2
 showScore   KEYWORD2
 appendColumn KEYWORD2
 setLED	KEYWORD2

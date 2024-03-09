@@ -13,7 +13,7 @@ bool irTog = false;
 bool toneIsPlaying = false;
 bool playTog = false;
 bool toneStopped = false;
-char prevChar;
+int splitMod = 10;
 
 ProGamer *thisGamer = NULL;
 
@@ -34,24 +34,24 @@ ISR(TIMER2_COMPA_vect)
       if (toggleVal) {
         PORTD |= _BV(PORTD2);
         toggleVal = 0;
-        if(split % 10 == 0 ){
+        if(split % splitMod == 0 ){
           thisGamer->isrRoutine();
         }
-        split++;
+        //split++;
       }
       else {
         PORTD &= ~_BV(PORTD2);
         toggleVal = 1;
-        if(split % 10== 0 ) {
+        if(split % splitMod == 0 ) {
           thisGamer->isrRoutine();
         }
-        split++;
+        //split++;
       }
-      split++;
+      //split++;
     }
     else {
       PORTD &= ~_BV(PORTD2);
-      if(split % 10 == 0 ) {
+      if(split % splitMod == 0 ) {
         thisGamer->isrRoutine();
       }
     }
@@ -304,6 +304,23 @@ void ProGamer::printString(char *string)
   renderFunction = &ProGamer::renderString;
 }
 
+void ProGamer::printChar(char chr)
+{
+  bool end = false;
+  for(int i=0; i<8; i++) {
+    byte column = 0;
+    if(!end) {
+      int letIdx = charToLetterIndex(chr);
+      column = pgm_read_byte(&allLetters[letIdx][i]);
+      if(column == LETEND) {
+        end = true;
+        column = 0;
+      }
+    }
+    appendColumn(column);
+  }
+}
+
 void ProGamer::showScore(int n)
 {
   if(n < 100) {
@@ -549,6 +566,16 @@ void ProGamer::printDigit(int digit, int x)
   printImage(result, x, 0);
 }
 
+int ProGamer::charToLetterIndex(char c) {
+  if( c>='A' && c<='Z' ) return c-'A'+1;
+  else if( c>='a' && c<='z' ) return c-'a'+1+26;
+  else if( c>='!' && c<='/' ) return c+20;
+  else if( c>=':' && c<='@' ) return c+10;
+  else if( c>='0' && c<='9' ) return c+27;
+
+  return 0;
+}
+
 void ProGamer::renderScore()
 {
   renderVar2++;
@@ -573,12 +600,7 @@ void ProGamer::renderString()
   byte col = 0;
   char c = currentString[renderVar];
   if(c != '\0') {
-    int letIx = 0;
-    if( c>='A' && c<='Z' ) letIx = c-'A'+1;
-    else if( c>='a' && c<='z' ) letIx = c-'a'+1+26;
-    else if( c>='!' && c<='/' ) letIx = c+20;
-    else if( c>=':' && c<='@' ) letIx = c+10;
-    else if( c>='0' && c<='9' ) letIx = c+27;
+    int letIx = charToLetterIndex(c);
     
     col = pgm_read_byte(&allLetters[letIx][renderVar2]);
 
@@ -703,7 +725,7 @@ void ProGamer::updateRow()
   All the letters in the world.
  */
 
-const PROGMEM uint8_t ProGamer::allLetters[85][9] = {
+const PROGMEM uint8_t ProGamer::allLetters[85][8] = {
   {B00000000,B00000000,B00000000,LETEND},   // space
   {B01111110,B10010000,B10010000,B10010000,B01111110,B00000000,LETEND}, // A
   {B11111110,B10010010,B10010010,B10010010,B01101100,B00000000,LETEND}, // B

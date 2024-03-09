@@ -41,21 +41,21 @@ public:
 
 	struct Note {
 		enum Pitch {
-			E3 = 50,
+			E3 = 53,
 			DSHARP3 = 57,
 			D3 = 64,
 			CSHARP3 = 68,
-			C3 = 73,
-			B3 = 77,
+			C3 = 78,
+			B3 = 83,
 			ASHARP3 = 88,
 			A3 = 94,
 			GSHARP2 = 99,
-			G2 = 105,
+			G2 = 115,
 			FSHARP2 = 122,
 			F2 = 129,
 			E2 = 137,
 			DSHARP2 = 145,
-			D2 = 153,
+			D2 = 169,
 			CSHARP2 = 179,
 			C2 = 190,
 			B2 = 201,
@@ -102,6 +102,7 @@ public:
 	void printImage(byte* img);
 	void printImage(byte* img, int x, int y);
 	void printString(char *string);
+	void printChar(char chr);
 	void showScore(int n);
 	void appendColumn(uint16_t col);
 	void appendColumn(byte col);
@@ -137,9 +138,9 @@ private:
 	uint16_t image[8];
 	int frameLength = FLASH_LOOP_TIME;
 	long tick;
-	byte pressedInputs;
-	byte currentInputState;
-	byte lastInputState;
+	byte pressedInputs = 0;
+	byte currentInputState = 0;
+	byte lastInputState = 0;
 	int lastLDRValue;
 	bool capTouchFlag;
 
@@ -167,6 +168,7 @@ private:
 	void renderScore();
 	void renderString();
 	void printDigit(int digit, int x);
+	int charToLetterIndex(char c);
 
 	bool capTouch();
 	void updateAudio();
@@ -181,6 +183,6 @@ private:
 
 	// Numbers and letters for printString
 	#define LETEND B10101010
-	const static uint8_t allLetters[85][9];
+	const static uint8_t allLetters[85][8];
 	const static uint8_t allNumbers[10][8];
 };

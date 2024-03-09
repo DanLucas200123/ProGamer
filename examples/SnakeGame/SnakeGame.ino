@@ -1,15 +1,10 @@
 /*
-This is a hackable version of a classic mobile phone game - Snake!
-We've made this game as an example. You can see how it works, 
-hack it, change it, and break it. We've commented the code to help
-you understand what each function and variable does. For example, 
-try to change the growth factor of the snake, the speed, or whether
-you can pass through walls!
+SnakeGame example but it takes up less memory :-)
 */
 
-#include <Gamer.h>
+#include <ProGamer.h>
 
-Gamer gamer;
+ProGamer gamer;
 
 int isPlaying;
 
@@ -18,18 +13,21 @@ int snakeGrowthFactor = 1;
 boolean passThroughWalls = true;
 int snakeSpeed = 180;
 
-/* These two arrays store the snake's X/Y coordinates!
-  Our snake has a maximum length of 64. If it were any
-  bigger, it wouldn't fit in our screen! */
-int snakeX[64];
-int snakeY[64];
+// Changed these from ints to bytes, saving 24 bits of space per snake chunk
+byte snakeX[64];
+byte snakeY[64];
 int snakeDirection;
 
 // Stores the snake's length. This is also the score!
 int snakeLength;
 
-int appleX;
-int appleY;
+byte appleX;
+byte appleY;
+
+byte appleColour = ProGamer::LIGHT;
+byte snakeColourA = ProGamer::ONE;
+byte snakeColourB = ProGamer::DARK;
+int gameOverStep = -1;
 
 // Splash screen image
 byte splashScreen[8] = {
@@ -46,23 +44,27 @@ byte splashScreen[8] = {
 void setup() {
   gamer.begin();
   randomSeed(gamer.ldrValue());
+  gamer.setFramelength(snakeSpeed);
 }
 
 void loop() {
   if (isPlaying) {
     gamer.clear();
     updateApple();
-    drawApple();
     updateDirection();
     moveSnake();
     detectCollision();
     drawSnake();
-    gamer.updateDisplay();
-    delay(snakeSpeed);
+    drawApple();
+  }
+  else if(gameOverStep >= 0) {
+    gameOverUpdate();
   }
   else {
     showSplashScreen();
   }
+
+  gamer.update();
 }
 
 /* ---------------------------------------------------------------
@@ -78,6 +80,7 @@ void showSplashScreen() {
     snakeY[0] = 0;
     generateApple();
     isPlaying = true;
+    gamer.setFramelength(snakeSpeed);
   }
   else {
     gamer.printImage(splashScreen);
@@ -89,11 +92,32 @@ void showSplashScreen() {
   to the splash screen.
 */
 void gameOver() {
-  gamer.printString("Game over");
-  delay(100);
-  gamer.printString("Score");
-  delay(500);
-  gamer.showScore(snakeLength);
-  delay(500);
+  gameOverStep = 0;
   isPlaying = false;
+}
+
+void gameOverUpdate() {
+  if(gamer.isRenderingSpecial())
+    return;
+  
+  if(gameOverStep == 0) {
+    gamer.clear();
+    gamer.printString("Game over");
+    gamer.setFramelength(50);
+  }
+  else if(gameOverStep == 1) {
+    gamer.printString("Score");
+  }
+  else if(gameOverStep == 2) {
+    gamer.showScore(snakeLength);
+  }
+  else if(gameOverStep == 3) {
+    gamer.setFramelength(500);
+  }
+  else {
+    gameOverStep = -1;
+    return;
+  }
+
+  gameOverStep++;
 }

@@ -25,5 +25,5 @@ void generateApple() {
   Draws the apple on the screen. 
 */
 void drawApple() {
-  gamer.display[appleX][appleY] = 1;
+  gamer.setPixel(appleX, appleY, appleColour);
 }
