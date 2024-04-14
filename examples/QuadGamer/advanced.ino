@@ -1,10 +1,5 @@
-/*
-Due to memory problems and the fact that it is the largest memory cost of a
-function that is used once, printString has been removed. Sorry.
-*/
-
 //volatile byte letters[53][8];
-volatile byte numbers[10][2][8];
+//volatile byte numbers[10][2][8];
 //volatile boolean printing = true;
 //volatile boolean doit = true;
 //volatile int shift1 = -8;
@@ -111,7 +106,7 @@ volatile byte numbers[10][2][8];
 //  }
 //}
 
-void showScore(byte dig1,byte dig2) {
+/*void showScore(byte dig1,byte dig2) {
   byte result[8];
   for(int p=0;p<8;p++) {
     result[p]=numbers[dig1][0][p]^numbers[dig2][1][p];
@@ -725,3 +720,4 @@ void setupScore() {
 //  letters[52][6] = B00100000;
 //  letters[52][7] = B00111000;
 }
+*/

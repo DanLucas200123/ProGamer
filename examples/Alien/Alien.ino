@@ -5,10 +5,10 @@ one after another to make an animation.
 */
 
 // Include Gamer library
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Create a copy of the Gamer library.
-Gamer gamer;
+ProGamer gamer;
 
 // Here are three images we will animate.
 byte alien1[] = {
@@ -47,21 +47,27 @@ byte alien3[] = {
 void setup() {
   // Start up Gamer.
   gamer.begin();
+  gamer.setFramelength(500);
 }
 
+int step;
 void loop() {
   // Show images, with a small delay in between.
-  gamer.printImage(alien1);
-  delay(500);
-  gamer.printImage(alien2);
-  delay(500);
-  gamer.printImage(alien3);
-  delay(500);
-  gamer.printImage(alien3);
-  delay(500);
-  gamer.printImage(alien2);
-  delay(500);
-  gamer.printImage(alien1);
-  delay(500);
+  switch(step) {
+    case 0: case 5:
+      gamer.printImage(alien1);
+      break;
+    case 1: case 4:
+      gamer.printImage(alien2);
+      break;
+    case 2: case 3:
+      gamer.printImage(alien3);
+      break;
+  }
+
+  step++;
+  if(step > 5)
+    step = 0;
+  gamer.update();
 }
 

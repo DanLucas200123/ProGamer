@@ -1,117 +1,238 @@
-int currentX = 0;
-int currentY = 0;
-int dir = 1;
-byte goalX = random(0,7);
-byte goalY = random(0,7);
-volatile byte snakeMap[8][8];
-byte snakeLength = 2;
-byte frames[11][8];
-int score = 0;
+// Tweaking variables
+int snakeGrowthFactor = 1;
+boolean passThroughWalls = true;
+int snakeSpeed = 180;
+
+// Changed these from ints to bytes, saving 24 bits of space per snake chunk
+byte snakeX[64];
+byte snakeY[64];
+int snakeDirection;
+
+// Stores the snake's length. This is also the score!
+int snakeLength;
+
+byte appleX;
+byte appleY;
+
+byte appleColour = ProGamer::LIGHT;
+byte snakeColourA = ProGamer::ONE;
+byte snakeColourB = ProGamer::DARK;
+int gameOverStep = -1;
+
+// Splash screen image
+byte snakeSplashScreen[8] = {
+  B00000000,
+  B01111110,
+  B01000000,
+  B01111110,
+  B00000010,
+  B00000010,
+  B01011110,
+  B00000000
+};
 
 void setupSnakeGame() {
-  snakeLength = 2;
-  score = 0;
-  goalX = random(0,7);
-  goalY = random(0,7);
-  currentX = 0;
-  currentY = 0;
-  for(int x=0;x<8;x++) {
-    for(int y=0;y<8;y++) {
-      snakeMap[x][y] = 0;
-    }
-  }
-  gamer.updateDisplay();
+  isPlaying = false;
+  gamer.setFramelength(snakeSpeed);
 }
 
 void snakeLoop() {
-  //gamer.clear, but DON'T UPDATE YET!!!!
-  for(int x=0;x<8;x++) {
-    for(int y=0;y<8;y++) {
-      gamer.display[x][y] = LOW;
-    }
+  if (isPlaying) {
+    gamer.clear();
+    updateApple();
+    updateDirection();
+    moveSnake();
+    snakeDetectCollision();
+    drawSnake();
+    drawApple();
   }
-  //buttons should be here!
-  //when upPressed etc. has been added, uncomment this next section and then comment out the random directions section:
+  else if(gameOverStep >= 0) {
+    gameOverUpdate();
+  }
+  else {
+    snakeShowSplashScreen();
+  }
+}
+
+/* ---------------------------------------------------------------
+  Displays the game's splash screen. Press start and the game will
+  start.
+*/
+void snakeShowSplashScreen() {
+  if (gamer.isPressed(UP)) {
+    // begin!
+    snakeDirection = DOWN;
+    snakeLength = 1;
+    snakeX[0] = 0;
+    snakeY[0] = 0;
+    generateApple();
+    isPlaying = true;
+    gamer.setFramelength(snakeSpeed);
+  }
+  else {
+    gamer.printImage(snakeSplashScreen);
+  }
+}
+
+/* ---------------------------------------------------------------
+  It's game over baby! Shows the score, and takes us back
+  to the splash screen.
+*/
+void snakeGameOver() {
+  gameOverStep = 0;
+  isPlaying = false;
+}
+
+void gameOverUpdate() {
+  if(gamer.isRenderingSpecial())
+    return;
   
-  if(gamer.isPressed(UP)) dir=1;
-  if(gamer.isPressed(RIGHT)) dir=2;
-  if(gamer.isPressed(DOWN)) dir=3;
-  if(gamer.isPressed(LEFT)) dir=4;
+  if(gameOverStep == 0) {
+    gamer.clear();
+    gamer.printString("Game over");
+    gamer.setFramelength(50);
+  }
+  else if(gameOverStep == 1) {
+    gamer.printString("Score");
+  }
+  else if(gameOverStep == 2) {
+    gamer.showScore(snakeLength);
+  }
+  else if(gameOverStep == 3) {
+    gamer.setFramelength(500);
+  }
+  else {
+    gameOverStep = -1;
+    return;
+  }
+
+  gameOverStep++;
+}
+
+/*
+ * These are all apple-related functions.
+ */
+
+/* ---------------------------------------------------------------
+  Checks if the apple has been eaten by the snake. If it has, 
+  it makes the snake longer and generates a new apple. 
+*/
+void updateApple() {
+  if(snakeX[0] == appleX && snakeY[0] == appleY) {
+    generateApple();
+    snakeLength = snakeLength + snakeGrowthFactor;
+  }
+}
+
+/* ---------------------------------------------------------------
+  Generates a new apple, at a random position on the screen.
+*/
+void generateApple() {
+  appleX = random(0, 7);
+  appleY = random(0, 7);
+}
+
+/* ---------------------------------------------------------------
+  Draws the apple on the screen. 
+*/
+void drawApple() {
+  gamer.setPixel(appleX, appleY, appleColour);
+}
+
+/* ---------------------------------------------------------------
+ Checks to see if buttons are pressed, then changes the direction
+ of the snake.
+ */
+void updateDirection() {
+  if(gamer.isPressed(UP)) {
+    if(snakeDirection != DOWN) snakeDirection = UP;
+  }
+  else if(gamer.isPressed(DOWN)) {
+    if(snakeDirection != UP) snakeDirection = DOWN;
+  }
+  else if(gamer.isPressed(LEFT)) {
+    if(snakeDirection != RIGHT) snakeDirection = LEFT;
+  }
+  else if(gamer.isPressed(RIGHT)) {
+    if(snakeDirection != LEFT) snakeDirection = RIGHT;
+  }
+}
+
+/* ---------------------------------------------------------------
+ Moves the snake's head by one position forward, depending on the snake's
+ direction. 
+ */
+void moveSnake() {
+  int newX;
+  int newY;
   
-  //this is a random directions function. comment it out when button support has been added
-  //if(random(0,10)>7) dir++;
-  //if(dir>4) dir=1;
-  //this is the end of a random directions function.
-  if(dir==1) {
-    currentY--;
-    if(currentY<0) currentY=7;
-  } else if(dir==2) {
-    currentX++;
-    if(currentX>7) currentX=0;
-  } else if(dir==3) {
-    currentY++;
-    if(currentY>7) currentY=0;
-  } else if(dir==4) {
-    currentX--;
-    if(currentX<0) currentX=7;
+  // Change the head's position, depending
+  // on the direction the snake is going towards.
+  if(snakeDirection == LEFT) {
+    newX = snakeX[0] - 1;
+    newY = snakeY[0];
   }
-  gamer.display[currentX][currentY] = HIGH;
-  snakeRec();
-  isCollected();
-  delay(100);
-  gamer.updateDisplay();
-}
+  else if(snakeDirection == RIGHT) {
+    newX = snakeX[0] + 1;
+    newY = snakeY[0];
+  }
+  else if(snakeDirection == UP) {
+    newX = snakeX[0];
+    newY = snakeY[0] - 1;
+  }
+  else if(snakeDirection == DOWN) {
+    newX = snakeX[0];
+    newY = snakeY[0] + 1;
+  }
+  
+  moveBody();
+  
+  /* Store the snake's new head position. 
+  If it's off the screen, put it back into 
+  the screen! */
+  if(passThroughWalls == true) {
+    if(newX == 8) snakeX[0] = 0;
+    else if(newX == -1) snakeX[0] = 7;
+    else snakeX[0] = newX;
+    
+    if(newY == 8) snakeY[0] = 0;
+    else if(newY == -1) snakeY[0] = 7;
+    else snakeY[0] = newY;
+  }
+  else if(passThroughWalls == false) {
+    if(newX == 8 || newX == -1) snakeGameOver();
+    else snakeX[0] = newX;
 
-void isCollected() {
-  if(currentX==goalX && currentY==goalY) {
-    goalX = random(0,7);
-    goalY = random(0,7);
-    snakeLength++;
-    score++;
-    for(int x=0;x<8;x++) {
-      for(int y=0;y<8;y++) {
-        snakeMap[x][y]++;
-      }
-    }
-  } else {
-    gamer.display[goalX][goalY] = HIGH;
-  }
-}
-
-void snakeRec() {
-  for(int x=0;x<8;x++) {
-    for(int y=0;y<8;y++) {
-      if(snakeMap[x][y] > 0) {
-        snakeMap[x][y]--;
-      }
-    }
-  }
-  collided();
-  snakeMap[currentX][currentY] = snakeLength;
-  for(int x=0;x<8;x++) {
-    for(int y=0;y<8;y++) {
-      if(snakeMap[x][y] > 0) {
-        gamer.display[x][y] = HIGH;
-      }
-    }
+    if(newY == 8 || newY == -1) snakeGameOver();
+    else snakeY[0] = newY;
   }
 }
 
-void collided() {
-  for(int x=0;x<8;x++) { //it seems to work if I add this :p
-    for(int y=0;y<8;y++) {
-      if(snakeMap[x][y] > 0) {
-        if(currentX == x && currentY == y) {
-          gamer.clear();
-          delay(20);
-          //printString("GAME OVER  you scored",40);
-          byte dig2 = score % 10;  //split score into two digits (eg 10 -> 1 and 0)
-          byte dig1 = (score-(score%10))/10;
-          showScore(dig1,dig2);
-          delay(300);
-          setupSnakeGame();
-        }
-      }
-    }
+/* ---------------------------------------------------------------
+ Moves the snake's body to follow the head.
+ */
+void moveBody() {
+  // Move the rest of the snake forward!
+  for(int i=snakeLength-1; i>0; i--) {
+    snakeX[i] = snakeX[i-1];
+    snakeY[i] = snakeY[i-1];
+  }
+}
+
+/* ---------------------------------------------------------------
+ Checks whether the snake has crashed into itself.
+ */
+void snakeDetectCollision() {
+  for(int i=1; i<snakeLength; i++) {
+    if(snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) snakeGameOver();
+  }
+}
+
+/* ---------------------------------------------------------------
+ Draws the snake on the screen.
+ */
+void drawSnake() {
+  for(int i=0; i<snakeLength; i++) {
+    gamer.setPixel(snakeX[i], snakeY[i], i % 2 ? snakeColourB : snakeColourA);
   }
 }

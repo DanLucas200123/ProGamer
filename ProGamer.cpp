@@ -184,11 +184,11 @@ void ProGamer::update()
       byteImage[j] = colourRowToByte(image[j]);
     updateAudio();
 
-    capTouchFlag = capTouch();
+    capTouchFlag = capTouch(); //This incurs a 1-frame delay - sub this from the delay at the loop end
 
     tick++;
     processTimer += FLASH_LOOP_TIME;
-    delay(FLASH_LOOP_TIME);
+    delay(FLASH_LOOP_TIME - 1);
   }
 
   if(renderFunction)

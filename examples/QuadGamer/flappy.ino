@@ -1,168 +1,210 @@
-/**
-*   Flappy Bit Version 1.0
-*   Original Arduino code By Daniel Ratcliffe http://www.twitter.com/DanTwoHundred
-*   Text rendering code by Finnbar Keating
-*   Adapted for the DIYGamer by George Profenza for TWSU
-*/
+// General
+int gameOverTimer = -1;
 
-boolean menu = true;
-boolean gameOver = false;
-boolean displayflappyScore = false;
+// Wall - related
+int wallThickness = 2;
+int gapSize = 3;
+int currentWallPosition;
+int gapPosition;
 
-int birdPos = 2;
-int pipePos = 8;
-int pipeGap = 3;
-int ticks = 0;
-byte flappyScore = 0;
-byte inGameScreen[] = {
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-  0,0,0,0,0,0,0,0,
-};
+// Bird - related
+int flyingSpeed = 150;
+int birdX = 2;
+int birdY;
+int gravity = 1;
 
-byte menuScreen[] = {
-  0,0,0,1,1,0,0,0,
-  0,0,1,0,0,1,0,0,
-  0,0,1,0,1,1,0,0,
-  1,1,1,0,0,1,0,0,
-  1,0,0,1,1,1,1,0,
-  1,0,1,0,1,0,0,1,
-  0,1,0,0,1,1,1,0,
-  0,0,1,1,1,0,0,0,
-};
+// Sound - related
+int gameStartSongLength = 3;
+byte gameStartNotes[] = {160, 140, 120};
+int gameOverSongLength = 4;
+byte gameOverNotes[] = {120, 140, 160, 190};
+byte wallNote[] = {200};
+
+// Splash screen image
+byte splashScreen[8] = {B11101110,
+                        B10001001,
+                        B10001001,
+                        B11101111,
+                        B10001001,
+                        B10001001,
+                        B10001110,
+                        B00000000};
 
 
-// UTILITY
-void drawInGameScreen( byte colour )
-{  
-  if( birdPos >= 0 && birdPos < 8 )
-  {
-    if( !gameOver || (gameOver && ((ticks / 24) % 2) == 1) )
-    {
-      inGameScreen[ 1 + birdPos*8 ] = colour;
-    }
-  }
-  for( int y=0; y<8; ++y )
-  {
-    if( y < pipeGap || y >= pipeGap + 3 )
-    {
-      if( pipePos >= 0 && pipePos < 8 )
-      {
-        inGameScreen[ pipePos + y*8 ] = colour;
-      }
-      if( pipePos >= -1 && pipePos < 7 )
-      {
-        inGameScreen[ pipePos + 1 + y*8 ] = colour;
-      }
-    }
-  }
+void resetFlappy() {
+  score = 0;
+  isPlaying = false;
+  gameOverTimer = -1;
+  gamer.setFramelength(flyingSpeed);
 }
 
-void resetFlappy(){
-  flappyScore = 0;
-  displayflappyScore = false;
-  ticks = 0;
-  birdPos = 2;
-  pipePos = 20;
-  pipeGap = 3;
-  gameOver = false;
-  drawInGameScreen( 1 );
-}
-void flappyLoop() 
-{  
-  // Update
-  if( menu )
-  {
-    // IN MENU
-    ++ticks;
-    if( (ticks % 12) == 0 )
-    {
-      // Animate the eye
-      if( rand()%30 == 0 ) 
-      {
-        menuScreen[ 19 ] = 1;
-        menuScreen[ 20 ] = 0;
-      }else
-      {
-        menuScreen[ 19 ] = 0;
-        menuScreen[ 20 ] = 1;
-      }
-    }
-
-    if(gamer.isPressed(UP)) {
-      menu = false;  
-      resetFlappy();
-    }
-  }else if(displayflappyScore){
+void flappyLoop() {
+  if(isPlaying && gameOverTimer < 0) {
     gamer.clear();
-    byte dig2 = flappyScore % 10;  //split flappyScore into two digits (eg 10 -> 1 and 0)
-    byte dig1 = (flappyScore-dig2)/10;
-    showScore(dig1,dig2);
-    delay(1000);
-    displayflappyScore = false;
-    for(int i = 0 ; i < 64; i++) inGameScreen[i] = 0;
-    resetFlappy();
-    menu = true;
-  }else{
-    // IN GAME
-    // Clear the screen
-    drawInGameScreen( 0 );
-    
-    // Update the state
-    ++ticks;
-    if( !gameOver && ((ticks % 12) == 0) )
-    {
-      // Move the pipe
-      byte lastPipePos = pipePos;
-      pipePos--;
-      if( pipePos < -1 )
-      {
-        flappyScore++;
-        pipePos = 7; 
-        pipeGap = 1 + rand()%4;
-      }
-           
-      // Move the bird
-      byte lastBirdPos = birdPos;
-      if(gamer.isPressed(UP)) birdPos = max( birdPos - 1, 0 );//move the bird upwards when UP key is pressed
-      else{
-        birdPos++;//move the bird down
-        if( birdPos >= 8 )//check if the bird hit the ground
-        {
-          gameOver = true;
-          pipePos = lastPipePos;
-          birdPos = lastBirdPos;
-          ticks = 0;
+    moveWall();
+    drawWall();
+    updateBird();
+    flappyDetectCollision();
+    recordScore();
+    drawBird();
+  }
+  else if(gameOverTimer >= 0) {
+    updateGameOver();
+  }
+  else {
+    showSplashScreen();
+  }
+}
+
+/* ---------------------------------------------------------------
+ Updates the bird's position. If you press UP, it will move up.
+ Otherwise, gravity will bring it down :)
+ */
+void updateBird() {
+  /* 
+   If the UP button is pressed, move the bird up. Otherwise, 
+   move it down with gravity. Remember, the X axis' 0 is on the top
+   of the screen. Therefore, when we move the bird up, we REDUCE birdY. 
+   When gravity brings it down, away from the axis' origin, 
+   we INCREASE birdY.
+   */
+  if(gamer.isPressed(UP)) {
+    birdY--;
+  }
+  else {
+    birdY = birdY + gravity;
+  }
+
+  // Detect if the bird is on the floor.
+  if(birdY == 7) gameOver();
+}
+
+/* ---------------------------------------------------------------
+ Draws the bird. Wherever it might be!
+ */
+void drawBird() {
+  // Make sure the bird isn't off the screen.
+  birdY = constrain(birdY, 0, 7);
+  // Display the bird dot.
+  if(gameOverTimer < 0)
+    gamer.setPixel(birdX, birdY, ProGamer::ONE);
+}
+
+/* ---------------------------------------------------------------
+ Moves the walls from right to left on the screen, with a constant
+ speed. 
+ */
+void moveWall() {
+  // If the wall is at the end of the screen, get a new wall going!
+  if(currentWallPosition == 0 - wallThickness) {
+    generateWall();
+  }
+  // Otherwise, move the wall. 
+  else {
+    currentWallPosition--;
+  }
+}
+
+/* ---------------------------------------------------------------
+ Places a new wall on the edge of the screen, ready to be moved.
+ */
+void generateWall() {
+  // Set the wall to the right of the screen.
+  currentWallPosition = 8;
+  // Get a random gap in the wall.
+  gapPosition = random(1, 7-gapSize);
+}
+
+/* ---------------------------------------------------------------
+ Draws the walls at their current position
+ */
+void drawWall() {
+  // Draw multiple walls, if we need to.
+  for(int j=0; j<wallThickness; j++) {
+    if(currentWallPosition+j >= 0 && currentWallPosition+j <= 7) {
+      for(int i=0; i<8; i++) {
+        // Draw the wall, but miss out the gap. 
+        if(i > gapPosition + gapSize - 1 || i < gapPosition) {
+          gamer.setPixel(currentWallPosition+j, i, ProGamer::ONE);
         }
       }
-      
-      // Test for pipe collision
-      if( (pipePos == 1 || pipePos == 0) && (birdPos < pipeGap || birdPos >= pipeGap + 3) )
-      {
-        gameOver = true;
-        pipePos = lastPipePos;
-        birdPos = lastBirdPos;
-        ticks = 0;
-      }
-//    }else if( gameOver && ticks >= 96 ) menu = true;//game over, display the last position for 96 ticks then return to menu
-    }else if( gameOver && ticks >= 96 ) displayflappyScore = true;//game over, display the last position for 96 ticks then return to menu
-    if( !menu ) drawInGameScreen( 1 ); // Redraw the screen
-  }
-  
-  // Render
-  if(!displayflappyScore){
-    byte* screen = menu ? menuScreen : inGameScreen;
-    for(int i = 0 ; i < 64; i++){
-      int x = i%8;
-      int y = i/8;
-      gamer.display[x][y] = screen[i];
     }
-    gamer.updateDisplay();
   }
-  delay(12);
+}
+
+/* ---------------------------------------------------------------
+ Checks if the bird is on a wall. If there's a pixel on the 
+ same position as the bird, it's game over!
+ */
+void flappyDetectCollision() {
+  if(gamer.getPixel(birdX, birdY)) {
+    gameOver();
+  }
+}
+
+/* ---------------------------------------------------------------
+ Keeps track of the score. If the bird is flying through a wall, 
+ add one to the score, and make a sound!
+ */
+void recordScore() {
+  if(birdX == currentWallPosition + wallThickness) {
+    score++;
+    gamer.playSFX(1, wallNote, flyingSpeed);
+  }
+}
+
+/* ---------------------------------------------------------------
+ Shows an image when the game isn't being played.
+ */
+void showSplashScreen() {
+  if(gamer.isPressed(UP)) {
+    
+    // Play a tune before the game starts.
+    gamer.playSFX(3, gameStartNotes, 100);
+    
+    isPlaying = true;
+    generateWall();
+    birdY = 2;
+    score = 0;
+
+    gamer.setFramelength(flyingSpeed);
+  }
+  else {
+    gamer.printImage(splashScreen);
+  }
+}
+
+/* ---------------------------------------------------------------
+ Shows Game over, followed by the score. 
+ */
+void gameOver() {
+  
+  // Play the Game Over tune.
+  gamer.playSFX(4, gameOverNotes, 100);
+  gameOverTimer = 0;
+  
+  // Display Game Over followed by the score.
+  gamer.printString("Game over");
+  gamer.setFramelength(50);
+}
+
+void updateGameOver() {
+  if(gamer.isRenderingSpecial())
+    return;
+  
+  if(gameOverTimer == 0) {
+    gamer.printString("Score");
+    gamer.setFramelength(50);
+  }
+  else if(gameOverTimer == 1) {
+    gamer.showScore(score);
+    gamer.setFramelength(100);
+  }
+  else if(gameOverTimer > 20) {
+    isPlaying = false;
+    gameOverTimer = -1;
+    return;
+  }
+
+  gameOverTimer++;
 }

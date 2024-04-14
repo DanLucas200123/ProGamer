@@ -14,10 +14,10 @@ If you have more specific questions, give him a ping on Twitter (@_finnbar)!
 */
 
 // Include Gamer library.
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Create a copy of the Gamer library.
-Gamer gamer;
+ProGamer gamer;
 
 byte startup[16][8]; //declare at top of code
 byte snake[16][8];  //snake animation
@@ -29,6 +29,10 @@ volatile byte animationLength[] = { //how long is each animation???
 volatile byte animationFrame = 0; //what frame is it???
 volatile byte gameNumber = 0; //what game is it???
 volatile byte gameMax = 4; //how many games are there???
+int state;
+
+int score;
+bool isPlaying;
 
 void setup() {
   gamer.begin();
@@ -37,84 +41,110 @@ void setup() {
   setupBreakout(); //breakout anim
   setupSimon(); //simon says anim
   setupFlappy(); //flappy anim
-  setupScore(); //printString / showScore
 
-    setupImages(); //breakout win/lose images
+  setupImages(); //breakout win/lose images
   setupSimonImages(); //simon arrow and result images
-  for(int i=0;i<16;i++) { //the animation
-    gamer.printImage(startup[i]);
-    delay(100);
-  }
+
+  state = -2;
+  gamer.setFramelength(100);
 }
 
 void loop() { //selector
-  if(gamer.isPressed(START)) {
-    //start game!
-    switch(gameNumber) {
-    case 0:
-      //snake!
-      //wait for start to be released
-      setupSnakeGame(); //setup, well, snake
-      while(!gamer.isPressed(START)) {
-        //run the main game loop!
-        snakeLoop();
+  if(state > -1 && gamer.isPressed(START)) {
+    state = -3;
+  }
+
+  switch(state) {
+    case -3:
+      state = -1;
+      gamer.clear();
+      gamer.setFramelength(100);
+      break;
+    case -2:
+      if(animationFrame == 16) {
+        state = -1;
+        animationFrame = 0;
+      }
+      else {
+        gamer.printImage(startup[animationFrame]);
+        animationFrame++;
       }
       break;
-    case 1:
-      startBreakout(true);
-      //breakout
-      while(!gamer.isPressed(START)) {
-        breakoutLoop();
+    case -1:
+      //play animations!
+      switch(gameNumber) {
+        case 0:
+          gamer.printImage(snake[animationFrame]);
+          break;
+        case 1:
+          //breakout
+          gamer.printImage(breakout[animationFrame]);
+          break;//out
+        case 2:
+          //simon
+          gamer.printImage(simon[animationFrame]);
+          break;
+        case 3:
+          //flappy
+          gamer.printImage(flappy[animationFrame]);
+          break;
       }
+      animationFrame++;
+      if(animationFrame>animationLength[gameNumber]-1)
+        animationFrame=0;
+      //now check buttons!
+      if(gamer.isPressed(LEFT)) {
+        gameNumber--;
+        animationFrame=0;
+      }
+      if(gamer.isPressed(RIGHT)) {
+        gameNumber++;
+        animationFrame=0;
+      }
+      if(gamer.isPressed(START)) {
+        startGame();
+      }
+
+      if(gameNumber==255)
+        gameNumber=gameMax-1;
+      if(gameNumber>=gameMax)
+        gameNumber=0;
+      break;
+    
+    case 0:
+      snakeLoop();
+      break;
+    case 1:
+      breakoutLoop();
+      break;
+    case 2:
+      simonLoop();
+      break;
+    case 3:
+      flappyLoop();
+      break;
+  }
+
+  gamer.update();
+}
+
+void startGame() {
+  switch(gameNumber) {
+    case 0:
+      setupSnakeGame();
+      break;
+    case 1:
+      startBreakout();
       break;
     case 2:
       resetSimon();
-      while(!gamer.isPressed(START)) {
-        simonLoop();
-      }
       break;
     case 3:
       resetFlappy();
-      while(!gamer.isPressed(START)) {
-        flappyLoop();
-      }
       break;
-    }
-  } 
-  else {
-    //play animations!
-    switch(gameNumber) {
-    case 0:
-      gamer.printImage(snake[animationFrame]);
-      break;
-    case 1:
-      //breakout
-      gamer.printImage(breakout[animationFrame]);
-      break;//out
-    case 2:
-      //simon
-      gamer.printImage(simon[animationFrame]);
-      break;
-    case 3:
-      //flappy
-      gamer.printImage(flappy[animationFrame]);
-      break;
-    }
-    animationFrame++;
-    if(animationFrame>animationLength[gameNumber]-1) animationFrame=0;
-    //now check buttons!
-    if(gamer.isPressed(LEFT)) {
-      gameNumber--;
-      animationFrame=0;
-    }
-    if(gamer.isPressed(RIGHT)) {
-      gameNumber++;
-      animationFrame=0;
-    }
-    if(gameNumber==255) gameNumber=gameMax-1;
-    if(gameNumber>=gameMax) gameNumber=0;
-    delay(100);
   }
+
+  state = gameNumber;
 }
 
 void setupLogo() { //run this at the start

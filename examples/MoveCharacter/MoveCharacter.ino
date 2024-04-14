@@ -7,10 +7,10 @@ telling it to print the image in a specific position!
 */
 
 // Include Gamer library.
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Create a copy of the Gamer library.
-Gamer gamer;
+ProGamer gamer;
 
 // This is where we store the position of our character!
 int xPos, yPos;
@@ -34,9 +34,6 @@ void setup() {
 }
 
 void loop() {
-  // Print the character in the right position.
-  gamer.printImage(character, xPos, yPos);
-  
   // Change the position of the character depending on the button presses.
   if(gamer.isPressed(UP)) {
     yPos--;
@@ -54,4 +51,9 @@ void loop() {
     xPos++;
     gamer.clear();
   }
+
+  // Print the character in the right position.
+  gamer.printImage(character, xPos, yPos);
+
+  gamer.update();
 }

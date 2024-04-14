@@ -1,12 +1,17 @@
+/*
+In the original library this does something even on 1.9, but not with the new library.
+Weird.
+*/
+
 // Load in the Gamer library
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Make an instance of the library
-Gamer gamer;
+ProGamer gamer;
 
 int currentFrame;
 
-// Animation code from our Animation generator app!
+// Animation code from our Animation generator app! (R.I.P.)
 // Replace this with yours!
 #define NUMFRAMES 6
 byte frames[NUMFRAMES][8] = {
@@ -68,6 +73,7 @@ byte frames[NUMFRAMES][8] = {
 void setup() {
   // Set up Gamer
   gamer.begin();
+  gamer.setFramelength(500);
 }
 
 void loop() {
@@ -76,5 +82,5 @@ void loop() {
   
   // Print current frame!
   gamer.printImage(frames[currentFrame]);
-  delay(10);
+  gamer.update();
 }

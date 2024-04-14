@@ -1,17 +1,19 @@
 /*
 This example shows you how to do an animation on the
-Gamer's screen. Remember that you can use our awesome
+Gamer's screen. Remember that if you want to use our awesome
 animation generator to automagically convert your
-animations into code that can be read by the Gamer!
+animations into code that can be read by the Gamer,
+well then it sucks to be you because it's been taken
+offline, have fun hand drawing animations!
 */
 
 // Include Gamer library
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Create a copy of the Gamer library.
-Gamer gamer;
+ProGamer gamer;
 
-// Animation code from our Animation generator app!
+// Animation code from our Animation generator app! (R.I.P.)
 // Replace this with yours!
 #define NUMFRAMES 5
 byte frames[NUMFRAMES][8] = {
@@ -65,14 +67,15 @@ byte frames[NUMFRAMES][8] = {
 void setup() {
   // Start up Gamer.
   gamer.begin();
+  gamer.setFramelength(200);
 }
 
+int i = 0;
 void loop() {
-  // Loop through all frames.
-  for(int i=0; i<NUMFRAMES; i++) {
-  	// Show the current frame.
+  if(i < NUMFRAMES) {
     gamer.printImage(frames[i]);
-    // Wait so that we can see the frame. 
-    delay(200);
+    i++;
   }
+
+  gamer.update();
 }
