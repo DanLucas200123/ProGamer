@@ -10,90 +10,110 @@ volatile byte sequence[SEQ_CAP];
 int simonState = 0;
 int seqIdx = 0;
 
+enum SimonState {
+  SS_COUNT_3 = 0,
+  SS_COUNT_2 = 1,
+  SS_COUNT_1 = 2,
+  SS_COUNT_GO = 3,
+  SS_MEM_SHOW,
+  SS_MEM_HIDE,
+  SS_CPY,
+  SS_LOSE_START,
+  SS_LOSE_SCORE,
+  SS_LOSE_RESET,
+  SS_WIN,
+};
+
 void resetSimon() {
   gamer.clear();
   sequence[0]=random(0,4);
   seqMax=1;
   delayMils = 300;
-  simonState = 0;
+  simonState = SS_COUNT_3;
 }
 
 void simonLoop() {
-  switch(simonState) {
-    case 0:
-      gamer.setFramelength(delayMils);
-      sequence[seqMax % SEQ_CAP]=random(0,4);
-    case 1:
-    case 2:
-      gamer.showScore(3-simonState);
-      simonState++;
-      break;
-    case 3:
-      gamer.printImage(go);
-      seqIdx = 0;
-      simonState++;
-      break;
-    case 4:
-      gamer.printImage(framesSimon[sequence[seqIdx]]);
-      simonState++;
-      break;
-    case 5:
-      gamer.clear();
-      seqIdx++;
-      if(seqIdx > seqMax % SEQ_CAP) {
+  //I could just use one switch statement here, but the program won't work for some reason
+  if(simonState < SS_LOSE_START) {
+    switch(simonState) {
+      case SS_COUNT_3:
+        gamer.setFramelength(delayMils);
+        sequence[seqMax % SEQ_CAP]=random(0,4);
+      case SS_COUNT_2:
+      case SS_COUNT_1:
+        gamer.showScore(3-simonState);
         simonState++;
+        break;
+      case SS_COUNT_GO:
+        gamer.printImage(go);
         seqIdx = 0;
-      }
-      else {
-        simonState--;
-      }
-      break;
-    case 6:
-      byte key = 4;
-      if(gamer.isPressed(UP)) key=0;
-      if(gamer.isPressed(DOWN)) key=1;
-      if(gamer.isPressed(LEFT)) key=2;
-      if(gamer.isPressed(RIGHT)) key=3;
-
-      if(key != 4) {
-        gamer.printImage(framesSimon[key]);
-        if(key == sequence[seqIdx]) {
-          seqIdx++;
-          if(seqIdx > seqMax % SEQ_CAP) {
-            simonState = 10;
-          }
+        simonState = SS_MEM_SHOW;
+        break;
+      case SS_MEM_SHOW:
+        gamer.printImage(framesSimon[sequence[seqIdx]]);
+        simonState = SS_MEM_HIDE;
+        break;
+      case SS_MEM_HIDE:
+        gamer.clear();
+        seqIdx++;
+        if(seqIdx > seqMax % SEQ_CAP) {
+          simonState = SS_CPY;
+          seqIdx = 0;
         }
         else {
-          simonState = 7;
+          simonState = SS_MEM_SHOW;
         }
-      }
-      break;
-    case 7:
-      gamer.printImage(wrong);
-      gamer.setFramelength(500);
-      simonState++;
-      break;
-    case 8:
-      gamer.showScore(seqMax-1);
-      simonState++;
-      break;
-    case 9:
-      resetSimon();
-      break;
-    case 10:
-      seqMax++;
-      gamer.printImage(right);
-      gamer.setFramelength(500);
-      simonState = 0;
-      delayMils -= delayMils / 40;
-      delayMils = constrain(delayMils, DELAY_MILS_CAP, 99999);
-      break;
-    default:
-      gamer.clear();
-      simonState = 0;
-      break;
+        break;
+      case SS_CPY:
+        byte key = 4;
+        if(gamer.isPressed(UP)) key=0;
+        if(gamer.isPressed(DOWN)) key=1;
+        if(gamer.isPressed(LEFT)) key=2;
+        if(gamer.isPressed(RIGHT)) key=3;
+
+        if(key != 4) {
+          gamer.printImage(framesSimon[key]);
+          if(key == sequence[seqIdx]) {
+            seqIdx++;
+            if(seqIdx > seqMax % SEQ_CAP) {
+              simonState = SS_WIN;
+            }
+          }
+          else {
+            simonState = SS_LOSE_START;
+          }
+        }
+        break;
+    }
   }
-  gamer.showScore(simonState);
+  else {
+    switch(simonState) {
+      case SS_LOSE_START:
+        gamer.printImage(wrong);
+        gamer.setFramelength(500);
+        simonState = SS_LOSE_SCORE;
+        break;
+      case SS_LOSE_SCORE:
+        gamer.showScore(seqMax-1);
+        simonState = SS_LOSE_RESET;
+        break;
+      case SS_LOSE_RESET:
+        resetSimon();
+        break;
+      case SS_WIN:
+        seqMax++;
+        gamer.printImage(right);
+        gamer.setFramelength(500);
+        simonState = SS_COUNT_3;
+        delayMils -= delayMils / 40;
+        delayMils = constrain(delayMils, DELAY_MILS_CAP, 99999);
+        break;
+      default:
+        gamer.clear();
+        simonState = SS_COUNT_3;
+        break;
+    }
+  }
 
   // sequence[seqMax]=random(0,4);
   // if(seqMax>0) {
