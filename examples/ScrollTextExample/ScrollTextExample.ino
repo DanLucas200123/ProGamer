@@ -4,10 +4,10 @@ across the Gamer's screen.
 */
 
 // Include Gamer library
-#include <Gamer.h>
+#include <ProGamer.h>
 
 // Create a copy of the Gamer library
-Gamer gamer;
+ProGamer gamer;
 
 void setup() {
   // Start up Gamer.
@@ -16,5 +16,7 @@ void setup() {
 
 void loop() {
   // Print "Hello world"
-  gamer.printString("Hello world! :D");
+  if(!gamer.isRenderingSpecial())
+    gamer.printString("Hello world! :D");
+  gamer.update();
 }

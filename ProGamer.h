@@ -158,6 +158,7 @@ private:
 	int noteTime;
 	bool soundOn = true;
 	byte *currentSFX = nullptr;
+	byte currentNote;
 	int sfxTick;
 	int sfxEndIdx;
 	int sfxBeatLength;

@@ -1,7 +1,7 @@
-#include <Gamer.h>
+#include <ProGamer.h>
+#include <string.h>
 
-
-Gamer gamer;
+ProGamer gamer;
 
 
 int buttonxPos = 0;
@@ -22,9 +22,9 @@ int noteOn;
 
 byte counter[8];
 byte noteGrid[8];
-byte finalImage[8];
 byte byCo[8] = {1, 2, 4, 8, 16, 32, 64, 128};
-int notes[8] = {110, 120, 130, 140, 150, 160, 170, 180};
+byte notes[8] = {ProGamer::Note::C2, ProGamer::Note::D2, ProGamer::Note::E2, ProGamer::Note::F2,
+                ProGamer::Note::G2, ProGamer::Note::A3, ProGamer::Note::B3, ProGamer::Note::C3};
 int tempoCounts[5] = {50, 100, 200, 300, 400};
 int currTemp;
 int noteStep[8];
@@ -34,19 +34,18 @@ long interval = 100;
 void setup() {
   gamer.begin();
   Serial.begin(9600);
+  gamer.setFramelength(tempoCounts[0]);
+  memset(noteStep, -1, 8 * sizeof(int));
 }
 
 void loop() {
-  if (gamer.capTouch() == true) {
-    if (tempoB != 1) {
-      tempoB = 1;
-      currTemp++;
-      if (currTemp > 4) {
-        currTemp = 0;
-      }
+  gamer.clear();
+
+  if (gamer.isPressed(CAPTOUCH)) {
+    currTemp++;
+    if (currTemp > 4) {
+      currTemp = 0;
     }
-  } else {
-    tempoB = 0;
   }
   interval = tempoCounts[currTemp];
 
@@ -63,40 +62,11 @@ void loop() {
   }
 
 
-  if (gamer.isHeld(UP)) {
-    if (upB != 1) {
-      buttonyPos--;
-      upB = 1;
-    }
-  } else {
-    upB = 0;
-  }
+  if (gamer.isPressed(UP)) {buttonyPos--;}
+  if (gamer.isPressed(DOWN)) {buttonyPos++;}
+  if (gamer.isPressed(LEFT)) {buttonxPos--;}
+  if (gamer.isPressed(RIGHT)) {buttonxPos++;}
 
-  if (gamer.isHeld(DOWN)) {
-    if (downB != 1) {
-      buttonyPos++;
-      downB = 1;
-    }
-  } else {
-    downB = 0;
-  }
-
-  if (gamer.isHeld(LEFT)) {
-    if (leftB != 1) {
-      buttonxPos++;
-      leftB = 1;
-    }
-  } else {
-    leftB = 0;
-  }
-  if (gamer.isHeld(RIGHT)) {
-    if (rightB != 1) {
-      buttonxPos--;
-      rightB = 1;
-    }
-  } else {
-    rightB = 0;
-  }
   if (buttonyPos > 7) {
     buttonyPos = 0;
   }
@@ -110,41 +80,35 @@ void loop() {
     buttonxPos = 7;
   }
 
-  if (gamer.isHeld(START)) {
-    if (startB != 1) {
-      if (noteOn != 1) {
-        startB = 1;
-        noteGrid[buttonyPos] = byCo[buttonxPos];
-        noteStep[buttonyPos] = buttonxPos;
-        noteOn = 1;
-      } else {
-        startB = 1;
-        noteStep[buttonyPos] = 0;
-        noteGrid[buttonyPos] = 0;
-        noteOn = 0;
-      }
+  if (gamer.isPressed(START)) {
+    if (noteOn != 1) {
+      noteGrid[buttonyPos] = byCo[buttonxPos];
+      noteStep[buttonyPos] = buttonxPos;
+      noteOn = 1;
+    } else {
+      noteStep[buttonyPos] = -1;
+      noteGrid[buttonyPos] = 0;
+      noteOn = 0;
     }
   } else {
     startB = 0;
   }
 
-
-
-  for (int i = 0 ; i < 8; i ++) {
-    counter[i] = 0;
-  }
-  counter[currNote] = ~0;
-  counter[buttonyPos] = byCo[buttonxPos];
   for (int j = 0; j < 8; j++) {
-    finalImage[j] = counter[j] | noteGrid[j];
+    gamer.setPixel(j, currNote, ProGamer::DARK);
   }
+  for(int i=0; i<8; i++) {
+    int xPos = noteStep[i];
+    if(xPos > -1)
+      gamer.setPixel(xPos, i, ProGamer::ONE);
+  }
+  gamer.setPixel(buttonxPos, buttonyPos, ProGamer::LIGHT);
   //Serial.println(noteGrid[currNote]);
   if (noteGrid[currNote] == 0) {
-    gamer.stopTone();
+    //gamer.stopTone();
   } else {
-    gamer.playTone(notes[noteStep[currNote]]);
-
+    gamer.playSFX(1, &notes[noteStep[currNote]], interval);
   }
-  gamer.printImage(finalImage);
 
+  gamer.update();
 }
