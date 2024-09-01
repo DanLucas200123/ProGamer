@@ -33,10 +33,10 @@ public:
 	#define TRACK_SIZE(_TRACK_) (sizeof(_TRACK_) / sizeof(_TRACK_[0]))
 
 	enum PixelColour {
-      ZERO,
-      DARK,
-      LIGHT,
-      ONE
+      CLR4_ZERO = 0b00,
+      CLR4_DARK = 0b01,
+      CLR4_LIGHT = 0b10,
+      CLR4_ONE = 0b11
     };
 
 	struct Note {
@@ -69,10 +69,6 @@ public:
 		byte duration;
 	};
 
-	byte pulseCount;
-	byte currentRow;
-	byte counter;
-
 	ProGamer();
 
 	void irEnd();
@@ -81,8 +77,8 @@ public:
 	void begin();
 	void update();
 
-	void setFramelength(int value);
-	int getFramelength();
+	void setFramelength(long value);
+	long getFramelength();
 
 	bool isRenderingSpecial();
 
@@ -99,7 +95,7 @@ public:
 	void clear();
 	void setPixel(int x, int y, byte colour);
 	byte getPixel(int x, int y);
-	void printImage(byte* img);
+	inline void printImage(byte* img) { printImage(img, 0, 0); }
 	void printImage(byte* img, int x, int y);
 	void printString(char *string);
 	void printChar(char chr);
@@ -109,6 +105,7 @@ public:
 	void setLED(bool value);
 	void toggleLED();
 
+	// Music and sound
 	void playTrack(int trackSize, Note track[], int beatLength, int pitchModifier = 0);
 	void playSFX(int trackSize, byte track[], int beatLength);
 	void setSoundOn(bool value);
@@ -134,9 +131,8 @@ private:
 	uint16_t _refreshRate;
 	uint16_t ldrThreshold;
 
-	byte byteImage[8];
 	uint16_t image[8];
-	int frameLength = FLASH_LOOP_TIME;
+	long frameLength = FLASH_LOOP_TIME;
 	long tick;
 	byte pressedInputs = 0;
 	byte currentInputState = 0;
@@ -163,8 +159,12 @@ private:
 	int sfxEndIdx;
 	int sfxBeatLength;
 
+	byte pulseCount;
+	byte currentRow;
+	byte counter;
+	byte colourCounter;
+
 	bool colourToBinaryDigit(byte colour);
-	byte colourRowToByte(uint16_t row);
 
 	void renderScore();
 	void renderString();
@@ -177,7 +177,7 @@ private:
 	void playTone(int note);
 	void stopTone();
 
-	void writeToDriver(byte dataOut);
+	void writeToDriver();
 	void writeToRegister(byte dataOut);
 	void checkInputs();
 	void updateRow();

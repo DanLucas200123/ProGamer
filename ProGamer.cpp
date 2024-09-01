@@ -177,11 +177,9 @@ void ProGamer::begin()
 
 void ProGamer::update()
 {
-  int processTimer = 0;
+  long processTimer = 0;
   pressedInputs = 0;
   while(processTimer < frameLength) {
-    for(int j=0; j<8; j++)
-      byteImage[j] = colourRowToByte(image[j]);
     updateAudio();
 
     capTouchFlag = capTouch(); //This incurs a 1-frame delay - sub this from the delay at the loop end
@@ -193,13 +191,6 @@ void ProGamer::update()
 
   if(renderFunction)
     (this->*renderFunction)();
-
-  // if(renderMode == RM_SCORE) {
-  //   renderScore();
-  // }
-  // else if(renderMode == RM_STRING) {
-  //   renderString();
-  // }
 }
 
 bool ProGamer::isPressed(uint8_t input)
@@ -212,19 +203,18 @@ bool ProGamer::isHeld(uint8_t input)
   return !(currentInputState & INPUT_MASK(input));
 }
 
-void ProGamer::setFramelength(int value)
+void ProGamer::setFramelength(long value)
 {
   frameLength = value;
 }
 
-int ProGamer::getFramelength()
+long ProGamer::getFramelength()
 {
   return frameLength;
 }
 
 bool ProGamer::isRenderingSpecial()
 {
-  //return renderMode != RM_NONE;
   return renderFunction; // != nullptr;
 }
 
@@ -248,7 +238,6 @@ void ProGamer::allOn()
   for(int j=0; j<8; j++) {
     image[j] = 0xFFFF;
   }
-  //renderMode = RM_NONE;
   renderFunction = nullptr;
 }
 
@@ -257,7 +246,6 @@ void ProGamer::clear()
   for(int j=0; j<8; j++) {
     image[j] = 0;
   }
-  //renderMode = RM_NONE;
   renderFunction = nullptr;
 }
 
@@ -268,7 +256,6 @@ void ProGamer::setPixel(int x, int y, byte colour)
   image[y] &= mask;
   image[y] |= (colour << shift);
 
-  //renderMode = RM_NONE;
   renderFunction = nullptr;
 }
 
@@ -278,29 +265,21 @@ byte ProGamer::getPixel(int x, int y)
   return (image[y] >> shift) & 0b11;
 }
 
-void ProGamer::printImage(byte *img)
-{
-  printImage(img, 0, 0);
-}
-
 void ProGamer::printImage(byte *img, int x, int y)
 {
   for(int j=max(y,0); j<min(y+8,8); j++) {
     for(int i=max(x,0); i<min(x+8,8); i++) {
-      setPixel(i, j, img[j-y] & (1 << (7-(i-x))) ? ONE : ZERO);
+      setPixel(i, j, img[j-y] & (1 << (7-(i-x))) ? CLR4_ONE : CLR4_ZERO);
     }
   }
-  //renderMode = RM_NONE;
   renderFunction = nullptr;
 }
 
 void ProGamer::printString(char *string)
 {
-  //clear();
   currentString = string;
   renderVar = 0;
   renderVar2 = 0;
-  //renderMode = RM_STRING;
   renderFunction = &ProGamer::renderString;
 }
 
@@ -327,13 +306,11 @@ void ProGamer::showScore(int n)
     if(n > 9)
       printDigit(n / 10, 0);
     printDigit(n % 10, 4);
-    //renderMode = RM_NONE;
     renderFunction = nullptr;
   }
   else {
     int top = TOP_DIGIT(n);
     printDigit(top, 4);
-    //renderMode = RM_SCORE;
     renderFunction = &ProGamer::renderScore;
     renderVar = n;
     renderVar2 = -1;
@@ -352,9 +329,8 @@ void ProGamer::appendColumn(byte col)
 {
   for(int j=0; j<8; j++) {
     image[j] <<= 2;
-    //image[j] |= (col >> (7 - j)) & 0b1 ? ONE : ZERO;
     if((col >> (7 - j)) & 0b1)
-      image[j] += ONE;
+      image[j] += CLR4_ONE;
   }
 }
 
@@ -403,24 +379,14 @@ bool ProGamer::isSoundOn()
 
 bool ProGamer::colourToBinaryDigit(byte colour)
 {
-  switch(colour) {
-    case ZERO: return 0;
-    case DARK:
-      return tick % (DARK_TICKS_OFF + DARK_TICKS_ON) < DARK_TICKS_ON;
-    case LIGHT:
-      return tick % (LIGHT_TICKS_OFF + LIGHT_TICKS_ON) < LIGHT_TICKS_ON;
-    case ONE: return 1;
-  }
-}
-
-byte ProGamer::colourRowToByte(uint16_t row)
-{
-  byte output = 0;
-  for(int i=0; i<8; i++) {
-    output <<= 1;
-    output |= colourToBinaryDigit((row >> (14 - 2*i)) & 0b11);
-  }
-  return output;
+  if(colour == CLR4_ONE)
+    return 1;
+  else if(colour == CLR4_ZERO)
+    return 0;
+  else if(colour == CLR4_LIGHT)
+    return colourCounter % (LIGHT_TICKS_OFF + LIGHT_TICKS_ON) < LIGHT_TICKS_ON;
+  else //(colour == CLR4_DARK)
+    return colourCounter % (DARK_TICKS_OFF + DARK_TICKS_ON) < DARK_TICKS_ON;
 }
 
 bool ProGamer::capTouch()
@@ -613,7 +579,6 @@ void ProGamer::renderString()
   else {
     renderVar2++;
     if(renderVar2 > 7) {
-      //renderMode = RM_NONE;
       renderFunction = nullptr;
     }
   }
@@ -646,9 +611,8 @@ void ProGamer::isrRoutine()
 
 /**
   Writes a byte to the TLC5916 LED driver (cathodes).
-  @param dataOut the byte to write to the driver
  */
-void ProGamer::writeToDriver(byte dataOut)
+void ProGamer::writeToDriver()
 {
   // Output enable HIGH
   PORTB |= _BV(PORTB2);
@@ -656,8 +620,13 @@ void ProGamer::writeToDriver(byte dataOut)
   // Send byte to driver
   for(int x=0; x<8; x++) {
     PORTD &= ~_BV(PORTD6);
-    if(((dataOut & (1<<x)) >> x)) PORTB |= _BV(PORTB0);
-    else PORTB &= ~_BV(PORTB0);
+
+    byte pixel = getPixel(7 - x, counter);
+    if(colourToBinaryDigit(pixel))
+      PORTB |= _BV(PORTB0);
+    else
+      PORTB &= ~_BV(PORTB0);
+    
     PORTD |= _BV(PORTD6);
   }
 
@@ -713,9 +682,10 @@ void ProGamer::updateRow()
   if(counter==8) {
     counter = 0;
     currentRow = 0x80;
+    colourCounter++;
   }
   writeToRegister(0);
-  writeToDriver(byteImage[counter]);
+  writeToDriver();
   writeToRegister(currentRow);
   currentRow >>= 1;
   counter++;
