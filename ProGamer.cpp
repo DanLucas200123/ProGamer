@@ -384,9 +384,9 @@ bool ProGamer::colourToBinaryDigit(byte colour)
   else if(colour == CLR4_ZERO)
     return 0;
   else if(colour == CLR4_LIGHT)
-    return colourCounter % (LIGHT_TICKS_OFF + LIGHT_TICKS_ON) < LIGHT_TICKS_ON;
+    return (colourCounter >> 4) < LIGHT_TICKS_ON;
   else //(colour == CLR4_DARK)
-    return colourCounter % (DARK_TICKS_OFF + DARK_TICKS_ON) < DARK_TICKS_ON;
+    return (colourCounter & 0x0f) < DARK_TICKS_ON;
 }
 
 bool ProGamer::capTouch()
@@ -682,7 +682,11 @@ void ProGamer::updateRow()
   if(counter==8) {
     counter = 0;
     currentRow = 0x80;
-    colourCounter++;
+    colourCounter += 0x11; //Upper++, lower++
+    if((colourCounter >> 4) == LIGHT_TICKS_OFF + LIGHT_TICKS_ON)
+      colourCounter &= 0x0f;
+    if((colourCounter & 0x0f) == DARK_TICKS_OFF + DARK_TICKS_ON)
+      colourCounter &= 0xf0;
   }
   writeToRegister(0);
   writeToDriver();

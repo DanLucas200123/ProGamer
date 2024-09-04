@@ -96,7 +96,7 @@ void loop() {
 
     gamer.printChar(c);
     if(sharp)
-      gamer.setPixel(7, 0, ProGamer::ONE);
+      gamer.setPixel(7, 0, ProGamer::CLR4_ONE);
   }
   else if(drawMode == 2) {
     gamer.clear();
