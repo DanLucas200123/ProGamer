@@ -66,8 +66,9 @@ void loop() {
   }
 
   step++;
-  if(step > 5)
+  if(step > 5) {
     step = 0;
+  }
   gamer.update();
 }
 

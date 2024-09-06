@@ -95,14 +95,14 @@ void loop() {
   }
 
   for (int j = 0; j < 8; j++) {
-    gamer.setPixel(j, currNote, ProGamer::DARK);
+    gamer.setPixel(j, currNote, ProGamer::CLR4_DARK);
   }
   for(int i=0; i<8; i++) {
     int xPos = noteStep[i];
     if(xPos > -1)
-      gamer.setPixel(xPos, i, ProGamer::ONE);
+      gamer.setPixel(xPos, i, ProGamer::CLR4_ONE);
   }
-  gamer.setPixel(buttonxPos, buttonyPos, ProGamer::LIGHT);
+  gamer.setPixel(buttonxPos, buttonyPos, ProGamer::CLR4_LIGHT);
   //Serial.println(noteGrid[currNote]);
   if (noteGrid[currNote] == 0) {
     //gamer.stopTone();

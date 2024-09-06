@@ -14,9 +14,9 @@ int snakeLength;
 byte appleX;
 byte appleY;
 
-byte appleColour = ProGamer::LIGHT;
-byte snakeColourA = ProGamer::ONE;
-byte snakeColourB = ProGamer::DARK;
+byte appleColour = ProGamer::CLR4_LIGHT;
+byte snakeColourA = ProGamer::CLR4_ONE;
+byte snakeColourB = ProGamer::CLR4_DARK;
 int gameOverStep = -1;
 
 // Splash screen image

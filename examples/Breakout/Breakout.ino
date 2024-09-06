@@ -78,7 +78,7 @@ void loop() {
   for(int x=0;x<8;x++) {
     for(int y=0;y<4;y++) {
       if(blocks[x][y] == 1) {
-        gamer.setPixel(x, y, ProGamer::ONE);
+        gamer.setPixel(x, y, ProGamer::CLR4_ONE);
       }
     }
   }
@@ -90,7 +90,7 @@ void loop() {
     if(newY>-1 && newY<8) {
     } 
     else {
-      if(gamer.getPixel(newX, currentY-velocity[1]) == ProGamer::ZERO) {
+      if(gamer.getPixel(newX, currentY-velocity[1]) == ProGamer::CLR4_ZERO) {
         blocks[newX][currentY+velocity[1]]=0;
         velocity[1]*=-1;
       } 
@@ -102,11 +102,11 @@ void loop() {
     }
   } 
   else {
-    if(gamer.getPixel(currentX-velocity[0], newY) == ProGamer::ZERO) {
+    if(gamer.getPixel(currentX-velocity[0], newY) == ProGamer::CLR4_ZERO) {
       blocks[currentX+velocity[0]][newY]=0;
       velocity[0]*=-1;
       if(newY<0 || newY>7) {
-        if(gamer.getPixel(currentX+velocity[0], currentY-velocity[1]) == ProGamer::ZERO) {
+        if(gamer.getPixel(currentX+velocity[0], currentY-velocity[1]) == ProGamer::CLR4_ZERO) {
           blocks[currentX-velocity[0]][currentY-velocity[1]]=0;
           velocity[1]*=-1;
         } 
@@ -125,13 +125,13 @@ void loop() {
   }*/
   currentX = currentX+velocity[0];
   currentY = currentY+velocity[1];
-  gamer.setPixel(currentX, currentY, ProGamer::ONE);
+  gamer.setPixel(currentX, currentY, ProGamer::CLR4_ONE);
 
   if(currentY==7) { //if out of play, lose
     for(int b=0;b<4;b++) {
       gamer.clear();
       //delay(150);
-      gamer.setPixel(currentX, currentY, ProGamer::ONE);
+      gamer.setPixel(currentX, currentY, ProGamer::CLR4_ONE);
       //delay(150);
     }
     if(score==0){
@@ -179,7 +179,7 @@ void movePaddle() {
 
 void drawPaddle() {
   for(int x=0; x<8; x++) {
-    gamer.setPixel(x, 7, x >= paddleX && x < paddleX+PADDLE_SIZE ? ProGamer::ONE : ProGamer::ZERO);
+    gamer.setPixel(x, 7, x >= paddleX && x < paddleX+PADDLE_SIZE ? ProGamer::CLR4_ONE : ProGamer::CLR4_ZERO);
   }
 }
  
@@ -219,18 +219,18 @@ void physics() {
       continue;
     }
 
-    if(gamer.getPixel(nextX, currentY) != ProGamer::ZERO) {
+    if(gamer.getPixel(nextX, currentY) != ProGamer::CLR4_ZERO) {
       velocity[0] *= -1;
       breakBlock(nextX, currentY);
       continue;
     }
-    if(gamer.getPixel(currentX, nextY) != ProGamer::ZERO) {
+    if(gamer.getPixel(currentX, nextY) != ProGamer::CLR4_ZERO) {
       velocity[1] *= -1;
       breakBlock(currentX, nextY);
       continue;
     }
 
-    if(gamer.getPixel(nextX, nextY) != ProGamer::ZERO) {
+    if(gamer.getPixel(nextX, nextY) != ProGamer::CLR4_ZERO) {
       velocity[0] *= -1;
       velocity[1] *= -1;
       breakBlock(nextX, nextY);
@@ -244,7 +244,7 @@ void physics() {
 void breakBlock(int x, int y) {
   if(blocks[x][y]) {
     blocks[x][y] = 0;
-    gamer.setPixel(x, y, ProGamer::ZERO);
+    gamer.setPixel(x, y, ProGamer::CLR4_ZERO);
   }
 }
 

@@ -73,13 +73,13 @@ void loop() {
  */
 void updateBird() {
   /* 
-   If the UP button is pressed, move the bird up. Otherwise, 
-   move it down with gravity. Remember, the X axis' 0 is on the top
+   If the UP button or capacitive touch is pressed, move the bird up. Otherwise, 
+   move it down with gravity. Remember, the Y axis' 0 is on the top
    of the screen. Therefore, when we move the bird up, we REDUCE birdY. 
    When gravity brings it down, away from the axis' origin, 
    we INCREASE birdY.
    */
-  if(gamer.isPressed(UP)) {
+  if(gamer.isPressed(UP) || gamer.isPressed(CAPTOUCH)) {
     birdY--;
   }
   else {
@@ -98,7 +98,7 @@ void drawBird() {
   birdY = constrain(birdY, 0, 7);
   // Display the bird dot.
   if(gameOverTimer < 0)
-    gamer.setPixel(birdX, birdY, ProGamer::ONE);
+    gamer.setPixel(birdX, birdY, ProGamer::CLR4_ONE);
 }
 
 /* ---------------------------------------------------------------
@@ -136,7 +136,7 @@ void drawWall() {
       for(int i=0; i<8; i++) {
         // Draw the wall, but miss out the gap. 
         if(i > gapPosition + gapSize - 1 || i < gapPosition) {
-          gamer.setPixel(currentWallPosition+j, i, ProGamer::ONE);
+          gamer.setPixel(currentWallPosition+j, i, ProGamer::CLR4_ONE);
         }
       }
     }

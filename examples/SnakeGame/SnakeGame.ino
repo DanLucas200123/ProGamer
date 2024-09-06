@@ -13,7 +13,7 @@ int snakeGrowthFactor = 1;
 boolean passThroughWalls = true;
 int snakeSpeed = 180;
 
-// Changed these from ints to bytes, saving 24 bits of space per snake chunk
+// Changed these from ints to bytes, saving 24 bits of space per snake chunk :-D
 byte snakeX[64];
 byte snakeY[64];
 int snakeDirection;
@@ -24,9 +24,9 @@ int snakeLength;
 byte appleX;
 byte appleY;
 
-byte appleColour = ProGamer::LIGHT;
-byte snakeColourA = ProGamer::ONE;
-byte snakeColourB = ProGamer::DARK;
+byte appleColour = ProGamer::CLR4_LIGHT;
+byte snakeColourA = ProGamer::CLR4_ONE;
+byte snakeColourB = ProGamer::CLR4_DARK;
 int gameOverStep = -1;
 
 // Splash screen image

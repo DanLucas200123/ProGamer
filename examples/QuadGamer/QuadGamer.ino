@@ -101,7 +101,7 @@ void loop() { //selector
         gameNumber++;
         animationFrame=0;
       }
-      if(gamer.isPressed(START)) {
+      if(gamer.isPressed(START) || gamer.isPressed(CAPTOUCH)) {
         startGame();
       }
 
